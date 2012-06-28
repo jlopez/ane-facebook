@@ -1,13 +1,14 @@
 package com.jesusla.facebook {
+  import flash.events.Event;
   import flash.events.EventDispatcher;
   import flash.events.StatusEvent;
   import flash.external.ExtensionContext;
   import flash.utils.setTimeout;
 
   /**
-   * Chartboost extension
+   * Facebook extension
    */
-  public class Facebook {
+  public class Facebook extends EventDispatcher {
     //---------------------------------------------------------------------
     //
     // Constants
@@ -22,24 +23,26 @@ package com.jesusla.facebook {
     public static const FACEBOOK_ACCESS_TOKEN_EXTENDED_EVENT:String = "FACEBOOK_ACCESS_TOKEN_EXTENDED_EVENT";
     public static const FACEBOOK_SESSION_INVALIDATED_EVENT:String = "FACEBOOK_SESSION_INVALIDATED_EVENT";
 
-    public static const INFO_LEVEL:String = "INFO";
-    public static const WARNING_LEVEL:String = "WARNING";
-    public static const ERROR_LEVEL:String = "ERROR";
-
     //---------------------------------------------------------------------
     //
     // Private Properties.
     //
     //---------------------------------------------------------------------
-    private static var context:ExtensionContext = initContext();
+    private static var context:ExtensionContext;
     private static var _isSupported:Boolean;
-    private static var _dispatcher:EventDispatcher = new EventDispatcher();
+    private static var _instance:Facebook;
 
     //---------------------------------------------------------------------
     //
     // Public Methods.
     //
     //---------------------------------------------------------------------
+    public function Facebook() {
+      if (_instance)
+        throw new Error("Singleton");
+      _instance = this;
+    }
+
     public static function get isSupported():Boolean {
       return _isSupported;
     }
@@ -101,12 +104,64 @@ package com.jesusla.facebook {
       return context.call("isSessionValid");
     }
 
+    public static function enableFrictionlessRequests():void {
+      if (isSupported)
+        context.call("enableFrictionlessRequests");
+    }
+
+    public static function reloadFrictionlessRecipientCache():void {
+      if (isSupported)
+        context.call("reloadFrictionlessRecipientCache");
+    }
+
+    public static function isFrictionlessEnabledForRecipient(fbid:String):Boolean {
+      if (!isSupported)
+        return false;
+      return context.call("isFrictionlessEnabledForRecipient", fbid);
+    }
+
+    public static function isFrictionlessEnabledForRecipients(fbids:Array):Boolean {
+      if (!isSupported)
+        return false;
+      return context.call("isFrictionlessEnabledForRecipients", fbids);
+    }
+
+    public static function showDialog(action:String, params:Object):void {
+      if (isSupported)
+        context.call("showDialog", action, params, keys(params));
+    }
+
+    public static function get shouldOpenDialogURLInExternalBrowser():Boolean {
+      return !isSupported || context.call("shouldOpenDialogURLInExternalBrowser");
+    }
+
+    public static function set shouldOpenDialogURLInExternalBrowser(value:Boolean):void {
+      if (isSupported)
+        context.call("setShouldOpenDialogURLInExternalBrowser", value);
+    }
+
     public static function addEventListener(event:String, listener:Function):void {
-      _dispatcher.addEventListener(event, listener);
+      _instance.addEventListener(event, listener);
     }
 
     public static function removeEventListener(event:String, listener:Function):void {
-      _dispatcher.removeEventListener(event, listener);
+      _instance.removeEventListener(event, listener);
+    }
+
+    public function dialogDidComplete(url:String):void {
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_COMPLETED, url));
+    }
+
+    public function dialogDidNotComplete(url:String):void {
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELED, url));
+    }
+
+    public function dialogDidFailWithError(error:Object):void {
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_FAILED, null, error));
+    }
+
+    public function dialogOpenUrl(url:String):void {
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_OPEN_URL, url));
     }
 
     //---------------------------------------------------------------------
@@ -114,18 +169,28 @@ package com.jesusla.facebook {
     // Private Methods.
     //
     //---------------------------------------------------------------------
-    private static function initContext():ExtensionContext {
-      var context:ExtensionContext =
-        ExtensionContext.createExtensionContext(EXTENSION_ID, "FacebookLib");
-      if (context) {
-        context.addEventListener(StatusEvent.STATUS, context_statusHandler);
-        _isSupported = context.actionScriptData;
-      }
-      return context;
+    private static function keys(object:Object):Array {
+      var keys:Array = [];
+      for (var key:String in object)
+        keys.push(key);
+      return keys;
     }
 
-    private static function context_statusHandler(event:StatusEvent):void {
-      _dispatcher.dispatchEvent(event);
+    private static function context_statusEventHandler(event:StatusEvent):void {
+      if (event.level == "TICKET")
+        context.call("claimTicket", event.code);
+      else
+        _instance.dispatchEvent(event);
+    }
+
+    {
+      new Facebook();
+      context = ExtensionContext.createExtensionContext(EXTENSION_ID, "FacebookLib");
+      if (context) {
+        _isSupported = context.actionScriptData;
+        context.addEventListener(StatusEvent.STATUS, context_statusEventHandler);
+        context.actionScriptData = _instance;
+      }
     }
   }
 }

@@ -23,12 +23,13 @@ static NSString *const FBAccessTokenExtendedEvent = @"FACEBOOK_ACCESS_TOKEN_EXTE
 static NSString *const FBSessionInvalidatedEvent = @"FACEBOOK_SESSION_INVALIDATED_EVENT";
 
 
-@interface FacebookLib : NativeLibrary<FBSessionDelegate> {
+@interface FacebookLib : NativeLibrary<FBSessionDelegate, FBRequestDelegate, FBDialogDelegate> {
 @private
   Facebook *facebook;
 }
 
 @property (nonatomic, readonly) NSString *applicationId;
+@property (nonatomic, assign) BOOL shouldOpenDialogURLInExternalBrowser;
 
 @end
 
@@ -45,12 +46,21 @@ FN_BEGIN(FacebookLib)
   FN(extendAccessTokenIfNeeded, extendAccessTokenIfNeeded)
   FN(shouldExtendAccessToken, shouldExtendAccessToken)
   FN(isSessionValid, isSessionValid)
+  FN(enableFrictionlessRequests, enableFrictionlessRequests)
+  FN(reloadFrictionlessRecipientCache, reloadFrictionlessRecipientCache)
+  FN(isFrictionlessEnabledForRecipient, isFrictionlessEnabledForRecipient:)
+  FN(isFrictionlessEnabledForRecipients, isFrictionlessEnabledForRecipients:)
+  FN(showDialog, dialog:params:paramsProperties:)
+  FN(shouldOpenDialogURLInExternalBrowser, shouldOpenDialogURLInExternalBrowser)
+  FN(setShouldOpenDialogURLInExternalBrowser, setShouldOpenDialogURLInExternalBrowser:)
 FN_END
 
 @synthesize applicationId;
+@synthesize shouldOpenDialogURLInExternalBrowser;
 
 - (id)init {
   if (self = [super init]) {
+    shouldOpenDialogURLInExternalBrowser = YES;
   }
   return self;
 }
@@ -105,6 +115,10 @@ FN_END
 
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation {
   return [facebook handleOpenURL:url];
+}
+
+- (void)applicationDidBecomeActive:(UIApplication *)application {
+  [facebook extendAccessTokenIfNeeded];
 }
 
 - (void)fbDidLogin {
@@ -169,6 +183,154 @@ FN_END
 
 - (BOOL)isSessionValid {
   return [facebook isSessionValid];
+}
+
+- (void)enableFrictionlessRequests {
+  [facebook enableFrictionlessRequests];
+}
+
+- (void)reloadFrictionlessRecipientCache {
+  [facebook reloadFrictionlessRecipientCache];
+}
+
+- (BOOL)isFrictionlessEnabledForRecipient:(NSString *)fbid {
+  return [facebook isFrictionlessEnabledForRecipient:fbid];
+}
+
+- (BOOL)isFrictionlessEnabledForRecipients:(NSArray *)fbids {
+  return [facebook isFrictionlessEnabledForRecipients:fbids];
+}
+
+- (void)requestWithMethodName:(NSString *)methodName params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
+  [facebook requestWithMethodName:methodName andParams:[params dictionaryWithProperties:paramsProperties, nil] andHttpMethod:httpMethod andDelegate:self];
+}
+
+- (void)requestWithGraphPath:(NSString *)graphPath params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
+  [facebook requestWithGraphPath:graphPath andParams:[params dictionaryWithProperties:paramsProperties, nil] andHttpMethod:httpMethod andDelegate:self];
+}
+
+- (void)dialog:(NSString *)action params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties {
+  ANELog(@"Conversion: [%@]", [params dictionaryWithProperties:paramsProperties, nil]);
+  [facebook dialog:action andParams:[params dictionaryWithProperties:paramsProperties, nil] andDelegate:self];
+}
+
+/**
+ * Called just before the request is sent to the server.
+ */
+- (void)requestLoading:(FBRequest *)request {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, request);
+}
+
+/**
+ * Called when the Facebook API request has returned a response.
+ *
+ * This callback gives you access to the raw response. It's called before
+ * (void)request:(FBRequest *)request didLoad:(id)result,
+ * which is passed the parsed response object.
+ */
+- (void)request:(FBRequest *)request didReceiveResponse:(NSURLResponse *)response {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, response);
+}
+
+/**
+ * Called when an error prevents the request from completing successfully.
+ */
+- (void)request:(FBRequest *)request didFailWithError:(NSError *)error {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, error);
+}
+
+/**
+ * Called when a request returns and its response has been parsed into
+ * an object.
+ *
+ * The resulting object may be a dictionary, an array or a string, depending
+ * on the format of the API response. If you need access to the raw response,
+ * use:
+ *
+ * (void)request:(FBRequest *)request
+ *      didReceiveResponse:(NSURLResponse *)response
+ */
+- (void)request:(FBRequest *)request didLoad:(id)result {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, result);
+}
+
+/**
+ * Called when a request returns a response.
+ *
+ * The result object is the raw response from the server of type NSData
+ */
+- (void)request:(FBRequest *)request didLoadRawResponse:(NSData *)data {
+  ANELog(@"%s: %@ NSData (%d bytes)", __PRETTY_FUNCTION__, request, [data length]);
+}
+
+/**
+ * Called when the dialog succeeds and is about to be dismissed.
+ */
+- (void)dialogDidComplete:(FBDialog *)dialog {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, dialog);
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogDidComplete"];
+  }];
+}
+
+/**
+ * Called when the dialog succeeds with a returning url.
+ */
+- (void)dialogCompleteWithUrl:(NSURL *)url {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, url);
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogDidCompleteWithUrl" withArgument:[url absoluteURL]];
+  }];
+}
+
+/**
+ * Called when the dialog get canceled by the user.
+ */
+- (void)dialogDidNotCompleteWithUrl:(NSURL *)url {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, url);
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogDidNotCompleteWithUrl" withArgument:[url absoluteURL]];
+  }];
+}
+
+/**
+ * Called when the dialog is cancelled and is about to be dismissed.
+ */
+- (void)dialogDidNotComplete:(FBDialog *)dialog {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, dialog);
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogDidNotComplete"];
+  }];
+}
+
+/**
+ * Called when dialog failed to load due to an error.
+ */
+- (void)dialog:(FBDialog*)dialog didFailWithError:(NSError *)error {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, dialog, error);
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogDidFailWithError" withArgument:error];
+  }];
+}
+
+/**
+ * Asks if a link touched by a user should be opened in an external browser.
+ *
+ * If a user touches a link, the default behavior is to open the link in the Safari browser,
+ * which will cause your app to quit.  You may want to prevent this from happening, open the link
+ * in your own internal browser, or perhaps warn the user that they are about to leave your app.
+ * If so, implement this method on your delegate and return NO.  If you warn the user, you
+ * should hold onto the URL and once you have received their acknowledgement open the URL yourself
+ * using [[UIApplication sharedApplication] openURL:].
+ */
+- (BOOL)dialog:(FBDialog*)dialog shouldOpenURLInExternalBrowser:(NSURL *)url {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, dialog, url);
+  if (shouldOpenDialogURLInExternalBrowser)
+    return YES;
+  [self executeOnActionScriptThread:^{
+    [self callMethodNamed:@"dialogOpenUrl" withArgument:[url absoluteURL]];
+  }];
+  return NO;
 }
 
 @end

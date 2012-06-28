@@ -7,6 +7,15 @@
 
     <fx:Script><![CDATA[
       import com.jesusla.facebook.Facebook;
+
+      private function parseDict(s:String):Object {
+        var rv:Object = {};
+        var parts:Array = s.split(',');
+        var len:int = parts.length & ~1;
+        for (var i:int = 0; i < len; i += 2)
+          rv[parts[i]] = parts[i + 1];
+        return rv;
+      }
     ]]></fx:Script>
 
     <s:layout>
@@ -37,6 +46,14 @@
 
       <s:Button label="logout()" width="80%"
         click="Facebook.logout();"/>
+
+      <s:HGroup width="80%" verticalAlign="middle">
+        <s:Button label="dialog"
+          click="Facebook.showDialog(action.text, parseDict(params.text));"/>
+        <s:TextInput id="action" width="100%" text="feed"/>
+      </s:HGroup>
+
+      <s:TextInput id="params" width="100%" text="app_id,435432429830213,link,http://apps.facebook.com/mj-bubble-spinner/,picture,http://fbrell.com/f8.jpg,name,Facebook Dialogs,caption,Reference Documentation,description,Using Dialogs to interact with users"/>
 
     </s:Panel>
 
