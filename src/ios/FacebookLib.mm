@@ -15,12 +15,12 @@ static NSString *const FBAutoLoginPermissionsKey = @"FBAutoLoginPermissionsKey";
 static NSString *const FBAppIdKey = @"FBAppID";
 static NSString *const FBPermissionsKey = @"FBPermissions";
 
-static NSString *const FBLoginEvent = @"FACEBOOK_LOGIN_EVENT";
-static NSString *const FBLoginCancelledEvent = @"FACEBOOK_LOGIN_CANCELLED_EVENT";
-static NSString *const FBLoginFailedEvent = @"FACEBOOK_LOGIN_FAILED_EVENT";
-static NSString *const FBLogoutEvent = @"FACEBOOK_LOGOUT_EVENT";
-static NSString *const FBAccessTokenExtendedEvent = @"FACEBOOK_ACCESS_TOKEN_EXTENDED_EVENT";
-static NSString *const FBSessionInvalidatedEvent = @"FACEBOOK_SESSION_INVALIDATED_EVENT";
+static NSString *const FBLoginEvent = @"LOGIN";
+static NSString *const FBLoginCancelledEvent = @"LOGIN_CANCELLED";
+static NSString *const FBLoginFailedEvent = @"LOGIN_FAILED";
+static NSString *const FBLogoutEvent = @"LOGOUT";
+static NSString *const FBAccessTokenExtendedEvent = @"ACCESS_TOKEN_EXTENDED";
+static NSString *const FBSessionInvalidatedEvent = @"SESSION_INVALIDATED";
 
 
 @interface FacebookLib : NativeLibrary<FBSessionDelegate, FBRequestDelegate, FBDialogDelegate> {
@@ -123,29 +123,29 @@ FN_END
 
 - (void)fbDidLogin {
   [self updateToken:facebook.accessToken expiresAt:facebook.expirationDate];
-  [self sendEventWithCode:FBLoginEvent level:@"INFO"];
+  [self sendEventWithCode:FBLoginEvent level:@"SESSION"];
 }
 
 - (void)fbDidNotLogin:(BOOL)cancelled {
   if (cancelled)
-    [self sendEventWithCode:FBLoginCancelledEvent level:@"INFO"];
+    [self sendEventWithCode:FBLoginCancelledEvent level:@"SESSION"];
   else
-    [self sendEventWithCode:FBLoginFailedEvent level:@"INFO"];
+    [self sendEventWithCode:FBLoginFailedEvent level:@"SESSION"];
 }
 
 - (void)fbDidExtendToken:(NSString *)accessToken expiresAt:(NSDate *)expiresAt {
   [self updateToken:accessToken expiresAt:expiresAt];
-  [self sendEventWithCode:FBAccessTokenExtendedEvent level:@"INFO"];
+  [self sendEventWithCode:FBAccessTokenExtendedEvent level:@"SESSION"];
 }
 
 - (void)fbDidLogout {
   [self removeToken];
-  [self sendEventWithCode:FBLogoutEvent level:@"INFO"];
+  [self sendEventWithCode:FBLogoutEvent level:@"SESSION"];
 }
 
 - (void)fbSessionInvalidated {
   [self removeToken];
-  [self sendEventWithCode:FBSessionInvalidatedEvent level:@"INFO"];
+  [self sendEventWithCode:FBSessionInvalidatedEvent level:@"SESSION"];
 }
 
 - (NSString *)accessToken {
@@ -279,7 +279,7 @@ FN_END
 - (void)dialogCompleteWithUrl:(NSURL *)url {
   ANELog(@"%s: %@", __PRETTY_FUNCTION__, url);
   [self executeOnActionScriptThread:^{
-    [self callMethodNamed:@"dialogDidCompleteWithUrl" withArgument:[url absoluteURL]];
+    [self callMethodNamed:@"dialogDidComplete" withArgument:[url absoluteString]];
   }];
 }
 
@@ -289,7 +289,7 @@ FN_END
 - (void)dialogDidNotCompleteWithUrl:(NSURL *)url {
   ANELog(@"%s: %@", __PRETTY_FUNCTION__, url);
   [self executeOnActionScriptThread:^{
-    [self callMethodNamed:@"dialogDidNotCompleteWithUrl" withArgument:[url absoluteURL]];
+    [self callMethodNamed:@"dialogDidNotComplete" withArgument:[url absoluteString]];
   }];
 }
 

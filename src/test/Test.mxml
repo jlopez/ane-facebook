@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <s:Application xmlns:fx="http://ns.adobe.com/mxml/2009"
                xmlns:s="library://ns.adobe.com/flex/spark"
-               xmlns:mx="library://ns.adobe.com/flex/mx">
+               xmlns:mx="library://ns.adobe.com/flex/mx"
+               applicationComplete="applicationCompleteHandler()">
     <fx:Declarations>
     </fx:Declarations>
 
     <fx:Script><![CDATA[
       import com.jesusla.facebook.Facebook;
+      import com.jesusla.facebook.DialogEvent;
+      import com.jesusla.facebook.SessionEvent;
 
       private function parseDict(s:String):Object {
         var rv:Object = {};
@@ -16,6 +19,62 @@
           rv[parts[i]] = parts[i + 1];
         return rv;
       }
+
+      private function applicationCompleteHandler():void {
+        Facebook.addEventListener(SessionEvent.LOGIN, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.LOGIN_CANCELLED, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.LOGIN_FAILED, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.LOGOUT, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.ACCESS_TOKEN_EXTENDED, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.SESSION_INVALIDATED, facebook_sessionEvent);
+
+        Facebook.addEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
+        Facebook.addEventListener(DialogEvent.DIALOG_CANCELED, facebook_dialogEvent);
+        Facebook.addEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+      }
+
+      private function facebook_sessionEvent(event:SessionEvent):void {
+        log("SessionEvent(" + event.type + ")");
+      }
+
+      private function facebook_dialogEvent(event:DialogEvent):void {
+        log("DialogEvent(" + event.type + ")");
+        if (event.url)
+          log("  url: " + event.url)
+        if (event.error)
+          logDump("  ", "error", event.error);
+      }
+
+      private function log(msg:String):void {
+        console.text += msg + "\n";
+      }
+
+      private function logDump(indent:String, tag:String, obj:Object):void {
+        log(indent + tag + "{");
+        for (var prop:String in obj)
+          log(indent + "  " + prop + ": " + obj[prop]);
+        log(indent + "}");
+      }
+
+      private function showDialog():void {
+        var dialog:String = arg1.text;
+        var params:* = arg2.text;
+        if (params.length)
+          params = parseDict(params)
+        else
+          params = {
+            app_id: "435432429830213",
+            link: "http://apps.facebook.com/mj-bubble-spinner/",
+            picture: "http://fbrell.com/f8.jpg",
+            name: "Facebook Dialogs",
+            caption: "Reference Documentation",
+            description: "Using Dialogs to interact with users"
+          }
+        if (!dialog.length)
+          dialog = "feed";
+        logDump("", "showDialog('" + dialog + "', ", params);
+        Facebook.showDialog(dialog, params);
+      }
     ]]></fx:Script>
 
     <s:layout>
@@ -23,37 +82,29 @@
     </s:layout>
     <s:Panel title="Facebook ANE Test" width="90%" height="90%">
       <s:layout>
-        <s:VerticalLayout horizontalAlign="center" gap="64" paddingTop="20" paddingBottom="20"/>
+        <s:VerticalLayout horizontalAlign="center" gap="48" paddingTop="20" paddingBottom="20"/>
       </s:layout>
 
       <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="token"
-          click="accessToken.text = String(Facebook.accessToken);"/>
-        <s:TextInput id="accessToken" width="100%"/>
+        <s:Button label="tok" click="log(Facebook.accessToken)"/>
+        <s:Button label="exp" click="log(String(Facebook.expirationDate))"/>
+        <s:Button label="login(a)" click="Facebook.login(arg1.text)"/>
+        <s:Button label="logout" click="Facebook.logout()"/>
+        <s:Button label="dlg(a,b)" click="showDialog()"/>
       </s:HGroup>
 
-      <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="exp."
-          click="expirationDate.text = String(Facebook.expirationDate);"/>
-        <s:TextInput id="expirationDate" width="100%"/>
-      </s:HGroup>
+      <s:VGroup width="80%">
+        <s:HGroup width="100%" verticalAlign="middle">
+          <s:Label text="a:"/>
+          <s:TextInput id="arg1" width="100%"/>
+        </s:HGroup>
+        <s:HGroup width="100%" verticalAlign="middle">
+          <s:Label text="b:"/>
+          <s:TextArea id="arg2" width="100%"/>
+        </s:HGroup>
+      </s:VGroup>
 
-      <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="login"
-          click="Facebook.login(permissions.text);"/>
-        <s:TextInput id="permissions" width="100%"/>
-      </s:HGroup>
-
-      <s:Button label="logout()" width="80%"
-        click="Facebook.logout();"/>
-
-      <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="dialog"
-          click="Facebook.showDialog(action.text, parseDict(params.text));"/>
-        <s:TextInput id="action" width="100%" text="feed"/>
-      </s:HGroup>
-
-      <s:TextInput id="params" width="100%" text="app_id,435432429830213,link,http://apps.facebook.com/mj-bubble-spinner/,picture,http://fbrell.com/f8.jpg,name,Facebook Dialogs,caption,Reference Documentation,description,Using Dialogs to interact with users"/>
+      <s:TextArea id="console" fontSize="14" height="100%" width="80%"/>
 
     </s:Panel>
 

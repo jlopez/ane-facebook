@@ -16,13 +16,6 @@ package com.jesusla.facebook {
     //---------------------------------------------------------------------
     private static const EXTENSION_ID:String = "com.jesusla.facebook";
 
-    public static const FACEBOOK_LOGIN_EVENT:String = "FACEBOOK_LOGIN_EVENT";
-    public static const FACEBOOK_LOGIN_CANCELLED_EVENT:String = "FACEBOOK_LOGIN_CANCELLED_EVENT";
-    public static const FACEBOOK_LOGIN_FAILED_EVENT:String = "FACEBOOK_LOGIN_FAILED_EVENT";
-    public static const FACEBOOK_LOGOUT_EVENT:String = "FACEBOOK_LOGOUT_EVENT";
-    public static const FACEBOOK_ACCESS_TOKEN_EXTENDED_EVENT:String = "FACEBOOK_ACCESS_TOKEN_EXTENDED_EVENT";
-    public static const FACEBOOK_SESSION_INVALIDATED_EVENT:String = "FACEBOOK_SESSION_INVALIDATED_EVENT";
-
     //---------------------------------------------------------------------
     //
     // Private Properties.
@@ -148,11 +141,11 @@ package com.jesusla.facebook {
       _instance.removeEventListener(event, listener);
     }
 
-    public function dialogDidComplete(url:String):void {
+    public function dialogDidComplete(url:String = null):void {
       dispatchEvent(new DialogEvent(DialogEvent.DIALOG_COMPLETED, url));
     }
 
-    public function dialogDidNotComplete(url:String):void {
+    public function dialogDidNotComplete(url:String = null):void {
       dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELED, url));
     }
 
@@ -179,8 +172,8 @@ package com.jesusla.facebook {
     private static function context_statusEventHandler(event:StatusEvent):void {
       if (event.level == "TICKET")
         context.call("claimTicket", event.code);
-      else
-        _instance.dispatchEvent(event);
+      else if (event.level == "SESSION")
+        _instance.dispatchEvent(new SessionEvent(event.code));
     }
 
     {
