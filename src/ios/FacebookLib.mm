@@ -26,10 +26,21 @@ static NSString *const FBSessionInvalidatedEvent = @"SESSION_INVALIDATED";
 @interface FacebookLib : NativeLibrary<FBSessionDelegate, FBRequestDelegate, FBDialogDelegate> {
 @private
   Facebook *facebook;
+  NSMutableDictionary *pendingRequests;
 }
 
 @property (nonatomic, readonly) NSString *applicationId;
 @property (nonatomic, assign) BOOL shouldOpenDialogURLInExternalBrowser;
+
+@end
+
+@interface JLRequestWrapper : NSObject<FBRequestDelegate> {
+@private
+}
+
+@property (nonatomic, readonly) NSString *uuid;
+@property (nonatomic, assign) FBRequest *request;
+@property (nonatomic, assign) FacebookLib *lib;
 
 @end
 
@@ -53,6 +64,7 @@ FN_BEGIN(FacebookLib)
   FN(showDialog, dialog:params:paramsProperties:)
   FN(shouldOpenDialogURLInExternalBrowser, shouldOpenDialogURLInExternalBrowser)
   FN(setShouldOpenDialogURLInExternalBrowser, setShouldOpenDialogURLInExternalBrowser:)
+  FN(graph, requestWithGraphPath:params:paramsProperties:httpMethod:)
 FN_END
 
 @synthesize applicationId;
@@ -61,11 +73,13 @@ FN_END
 - (id)init {
   if (self = [super init]) {
     shouldOpenDialogURLInExternalBrowser = YES;
+    pendingRequests = [NSMutableDictionary new];
   }
   return self;
 }
 
 - (void)dealloc {
+  [pendingRequests release];
   [facebook release];
   [super dealloc];
 }
@@ -205,62 +219,21 @@ FN_END
   [facebook requestWithMethodName:methodName andParams:[params dictionaryWithProperties:paramsProperties, nil] andHttpMethod:httpMethod andDelegate:self];
 }
 
-- (void)requestWithGraphPath:(NSString *)graphPath params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
-  [facebook requestWithGraphPath:graphPath andParams:[params dictionaryWithProperties:paramsProperties, nil] andHttpMethod:httpMethod andDelegate:self];
+- (NSString *)requestWithGraphPath:(NSString *)graphPath params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
+  NSMutableDictionary *dict = [params dictionaryWithProperties:paramsProperties, nil];
+  if (!dict)
+    dict = [NSMutableDictionary dictionary];
+  if (!httpMethod)
+    httpMethod = @"GET";
+  JLRequestWrapper *wrapper = [JLRequestWrapper new];
+  [pendingRequests setObject:wrapper forKey:wrapper.uuid];
+  wrapper.lib = self;
+  wrapper.request = [facebook requestWithGraphPath:graphPath andParams:dict andHttpMethod:httpMethod andDelegate:wrapper];
+  return wrapper.uuid;
 }
 
 - (void)dialog:(NSString *)action params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties {
-  ANELog(@"Conversion: [%@]", [params dictionaryWithProperties:paramsProperties, nil]);
   [facebook dialog:action andParams:[params dictionaryWithProperties:paramsProperties, nil] andDelegate:self];
-}
-
-/**
- * Called just before the request is sent to the server.
- */
-- (void)requestLoading:(FBRequest *)request {
-  ANELog(@"%s: %@", __PRETTY_FUNCTION__, request);
-}
-
-/**
- * Called when the Facebook API request has returned a response.
- *
- * This callback gives you access to the raw response. It's called before
- * (void)request:(FBRequest *)request didLoad:(id)result,
- * which is passed the parsed response object.
- */
-- (void)request:(FBRequest *)request didReceiveResponse:(NSURLResponse *)response {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, response);
-}
-
-/**
- * Called when an error prevents the request from completing successfully.
- */
-- (void)request:(FBRequest *)request didFailWithError:(NSError *)error {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, error);
-}
-
-/**
- * Called when a request returns and its response has been parsed into
- * an object.
- *
- * The resulting object may be a dictionary, an array or a string, depending
- * on the format of the API response. If you need access to the raw response,
- * use:
- *
- * (void)request:(FBRequest *)request
- *      didReceiveResponse:(NSURLResponse *)response
- */
-- (void)request:(FBRequest *)request didLoad:(id)result {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request, result);
-}
-
-/**
- * Called when a request returns a response.
- *
- * The result object is the raw response from the server of type NSData
- */
-- (void)request:(FBRequest *)request didLoadRawResponse:(NSData *)data {
-  ANELog(@"%s: %@ NSData (%d bytes)", __PRETTY_FUNCTION__, request, [data length]);
 }
 
 /**
@@ -331,6 +304,92 @@ FN_END
     [self callMethodNamed:@"dialogOpenUrl" withArgument:[url absoluteURL]];
   }];
   return NO;
+}
+
+@end
+
+@implementation JLRequestWrapper
+
+@synthesize uuid;
+@synthesize request;
+@synthesize lib;
+
+- (id)init {
+  if (self = [super init]) {
+    CFUUIDRef uuidRef = CFUUIDCreate(NULL);
+    uuid = (id)CFUUIDCreateString(NULL, uuidRef);
+    CFRelease(uuidRef);
+  }
+  return self;
+}
+
+- (void)dealloc {
+  [uuid release];
+  [super dealloc];
+}
+
+/**
+ * Called just before the request is sent to the server.
+ */
+- (void)requestLoading:(FBRequest *)request_ {
+  ANELog(@"%s: %@", __PRETTY_FUNCTION__, request_);
+  [lib executeOnActionScriptThread:^{
+    [lib callMethodNamed:@"requestLoading" withArgument:uuid];
+  }];
+}
+
+/**
+ * Called when the Facebook API request has returned a response.
+ *
+ * This callback gives you access to the raw response. It's called before
+ * (void)request:(FBRequest *)request didLoad:(id)result,
+ * which is passed the parsed response object.
+ */
+- (void)request:(FBRequest *)request_ didReceiveResponse:(NSURLResponse *)response {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, response);
+  [lib executeOnActionScriptThread:^{
+    [lib callMethodNamed:@"requestDidReceiveResponse" withArguments:[NSArray arrayWithObjects:uuid, response, nil]];
+  }];
+}
+
+/**
+ * Called when an error prevents the request from completing successfully.
+ */
+- (void)request:(FBRequest *)request_ didFailWithError:(NSError *)error {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, error);
+  [lib executeOnActionScriptThread:^{
+    [lib callMethodNamed:@"requestDidFailWithError" withArguments:[NSArray arrayWithObjects:uuid, error, nil]];
+  }];
+}
+
+/**
+ * Called when a request returns and its response has been parsed into
+ * an object.
+ *
+ * The resulting object may be a dictionary, an array or a string, depending
+ * on the format of the API response. If you need access to the raw response,
+ * use:
+ *
+ * (void)request:(FBRequest *)request
+ *      didReceiveResponse:(NSURLResponse *)response
+ */
+- (void)request:(FBRequest *)request_ didLoad:(id)result {
+  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, result);
+  [lib executeOnActionScriptThread:^{
+    [lib callMethodNamed:@"requestDidLoad" withArguments:[NSArray arrayWithObjects:uuid, result, nil]];
+  }];
+}
+
+/**
+ * Called when a request returns a response.
+ *
+ * The result object is the raw response from the server of type NSData
+ */
+- (void)request:(FBRequest *)request_ didLoadRawResponse:(NSData *)data {
+  ANELog(@"%s: %@ NSData (%d bytes)", __PRETTY_FUNCTION__, request_, [data length]);
+  [lib executeOnActionScriptThread:^{
+    [lib callMethodNamed:@"requestDidLoadRawResponse" withArguments:[NSArray arrayWithObjects:uuid, data, nil]];
+  }];
 }
 
 @end

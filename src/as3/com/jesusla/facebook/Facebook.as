@@ -3,6 +3,8 @@ package com.jesusla.facebook {
   import flash.events.EventDispatcher;
   import flash.events.StatusEvent;
   import flash.external.ExtensionContext;
+  import flash.utils.ByteArray;
+  import flash.utils.Dictionary;
   import flash.utils.setTimeout;
 
   /**
@@ -24,6 +26,8 @@ package com.jesusla.facebook {
     private static var context:ExtensionContext;
     private static var _isSupported:Boolean;
     private static var _instance:Facebook;
+
+    private var _pendingRequests:Object = {}
 
     //---------------------------------------------------------------------
     //
@@ -157,12 +161,64 @@ package com.jesusla.facebook {
       dispatchEvent(new DialogEvent(DialogEvent.DIALOG_OPEN_URL, url));
     }
 
+    public function requestLoading(uuid:String):void {
+      var request:FacebookRequest = getRequest(uuid);
+      request.dispatchEvent(new RequestEvent(RequestEvent.LOADING, getRequest(uuid)));
+    }
+
+    public function requestDidReceiveResponse(uuid:String, response:Object):void {
+      var request:FacebookRequest = getRequest(uuid);
+      request.response = response;
+      request.dispatchEvent(new RequestEvent(RequestEvent.RESPONSE, request));
+    }
+
+    public function requestDidFailWithError(uuid:String, error:Object):void {
+      var request:FacebookRequest = getRequest(uuid);
+      request.error = error;
+      request.dispatchEvent(new RequestEvent(RequestEvent.FAILED, request));
+      delete _pendingRequests[uuid]
+    }
+
+    public function requestDidLoad(uuid:String, result:Object):void {
+      var request:FacebookRequest = getRequest(uuid);
+      request.result = result;
+      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED, request));
+      delete _pendingRequests[uuid]
+    }
+
+    public function requestDidLoadRawResponse(uuid:String, data:ByteArray):void {
+      var request:FacebookRequest = getRequest(uuid);
+      request.rawResult = data;
+      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED_RAW, request));
+    }
+
+    //---------------------------------------------------------------------
+    //
+    // Internal (package level) Methods.
+    //
+    //---------------------------------------------------------------------
+    internal static function api(request:FacebookRequest, path:String, params:Object = null, httpMethod:String = null):void {
+      if (!isSupported)
+        return;
+      request.uuid = String(context.call("graph", path, params, keys(params), httpMethod));
+      _instance._pendingRequests[request.uuid] = request;
+    }
+
+    private function getRequest(uuid:String):FacebookRequest {
+      var request:FacebookRequest = _pendingRequests[uuid];
+      if (!request)
+        throw new Error("Unknown request for uuid " + uuid);
+      return request;
+    }
+
     //---------------------------------------------------------------------
     //
     // Private Methods.
     //
     //---------------------------------------------------------------------
     private static function keys(object:Object):Array {
+      if (object == null)
+        return null;
       var keys:Array = [];
       for (var key:String in object)
         keys.push(key);

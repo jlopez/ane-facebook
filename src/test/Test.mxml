@@ -8,7 +8,9 @@
 
     <fx:Script><![CDATA[
       import com.jesusla.facebook.Facebook;
+      import com.jesusla.facebook.FacebookRequest;
       import com.jesusla.facebook.DialogEvent;
+      import com.jesusla.facebook.RequestEvent;
       import com.jesusla.facebook.SessionEvent;
 
       private function parseDict(s:String):Object {
@@ -75,6 +77,38 @@
         logDump("", "showDialog('" + dialog + "', ", params);
         Facebook.showDialog(dialog, params);
       }
+
+      private function api():void {
+        var path:String = arg1.text;
+        var params:* = arg2.text;
+        if (!path.length)
+          path = "me";
+        if (params.length)
+          params = parseDict(params)
+        else
+          params = {}
+        logDump("", "api('" + path + "', ", params);
+        var request:FacebookRequest = new FacebookRequest();
+        request.addEventListener(RequestEvent.LOADING, request_requestEvent);
+        request.addEventListener(RequestEvent.RESPONSE, request_requestEvent);
+        request.addEventListener(RequestEvent.FAILED, request_requestEvent);
+        request.addEventListener(RequestEvent.LOADED, request_requestEvent);
+        request.addEventListener(RequestEvent.LOADED_RAW, request_requestEvent);
+        request.api(path, params);
+      }
+
+      private function request_requestEvent(event:RequestEvent):void {
+        log("RequestEvent(" + event.type + ")");
+        var r:FacebookRequest = event.request;
+        if (r.response)
+          logDump("  ", "response", r.response);
+        if (r.error)
+          logDump("  ", "error", r.error);
+        if (r.result)
+          logDump("  ", "result", r.result);
+        if (r.rawResult)
+          logDump("  ", "rawResult", r.rawResult);
+      }
     ]]></fx:Script>
 
     <s:layout>
@@ -90,7 +124,10 @@
         <s:Button label="exp" click="log(String(Facebook.expirationDate))"/>
         <s:Button label="login(a)" click="Facebook.login(arg1.text)"/>
         <s:Button label="logout" click="Facebook.logout()"/>
+      </s:HGroup>
+      <s:HGroup width="80%" verticalAlign="middle">
         <s:Button label="dlg(a,b)" click="showDialog()"/>
+        <s:Button label="api(a,b)" click="api()"/>
       </s:HGroup>
 
       <s:VGroup width="80%">
