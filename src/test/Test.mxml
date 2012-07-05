@@ -8,9 +8,7 @@
 
     <fx:Script><![CDATA[
       import com.jesusla.facebook.Facebook;
-      import com.jesusla.facebook.FacebookRequest;
       import com.jesusla.facebook.DialogEvent;
-      import com.jesusla.facebook.RequestEvent;
       import com.jesusla.facebook.SessionEvent;
 
       private function parseDict(s:String):Object {
@@ -31,7 +29,7 @@
         Facebook.addEventListener(SessionEvent.SESSION_INVALIDATED, facebook_sessionEvent);
 
         Facebook.addEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
-        Facebook.addEventListener(DialogEvent.DIALOG_CANCELED, facebook_dialogEvent);
+        Facebook.addEventListener(DialogEvent.DIALOG_CANCELLED, facebook_dialogEvent);
         Facebook.addEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
       }
 
@@ -88,26 +86,16 @@
         else
           params = {}
         logDump("", "api('" + path + "', ", params);
-        var request:FacebookRequest = new FacebookRequest();
-        request.addEventListener(RequestEvent.LOADING, request_requestEvent);
-        request.addEventListener(RequestEvent.RESPONSE, request_requestEvent);
-        request.addEventListener(RequestEvent.FAILED, request_requestEvent);
-        request.addEventListener(RequestEvent.LOADED, request_requestEvent);
-        request.addEventListener(RequestEvent.LOADED_RAW, request_requestEvent);
-        request.api(path, params);
+        Facebook.api(path, params, request_requestEvent);
       }
 
-      private function request_requestEvent(event:RequestEvent):void {
-        log("RequestEvent(" + event.type + ")");
-        var r:FacebookRequest = event.request;
-        if (r.response)
-          logDump("  ", "response", r.response);
-        if (r.error)
-          logDump("  ", "error", r.error);
-        if (r.result)
-          logDump("  ", "result", r.result);
-        if (r.rawResult)
-          logDump("  ", "rawResult", r.rawResult);
+      private function request_requestEvent(response:Object):void {
+        // log("RequestEvent(" + event.type + ")");
+        
+        if (response)
+          logDump("  ", "response", response);
+        if (response.error)
+          logDump("  ", "error", response.error);
       }
     ]]></fx:Script>
 
