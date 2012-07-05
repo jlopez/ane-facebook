@@ -257,7 +257,7 @@ FN_END
 }
 
 /**
- * Called when the dialog get canceled by the user.
+ * Called when the dialog gets cancelled by the user.
  */
 - (void)dialogDidNotCompleteWithUrl:(NSURL *)url {
   ANELog(@"%s: %@", __PRETTY_FUNCTION__, url);

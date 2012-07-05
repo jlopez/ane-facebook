@@ -3,7 +3,7 @@ package com.jesusla.facebook {
 
  public class DialogEvent extends Event {
    public static var DIALOG_COMPLETED:String = "DIALOG_COMPLETED";
-   public static var DIALOG_CANCELED:String = "DIALOG_CANCELED";
+   public static var DIALOG_CANCELLED:String = "DIALOG_CANCELLED";
    public static var DIALOG_FAILED:String = "DIALOG_FAILED";
    public static var DIALOG_OPEN_URL:String = "DIALOG_OPEN_URL";
 
