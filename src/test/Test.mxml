@@ -60,7 +60,7 @@
         var dialog:String = arg1.text;
         var params:* = arg2.text;
         if (params.length)
-          params = parseDict(params)
+          params = parseDict(params);
         else
           params = {
             app_id: "435432429830213",
@@ -69,7 +69,7 @@
             name: "Facebook Dialogs",
             caption: "Reference Documentation",
             description: "Using Dialogs to interact with users"
-          }
+          };
         if (!dialog.length)
           dialog = "feed";
         logDump("", "showDialog('" + dialog + "', ", params);

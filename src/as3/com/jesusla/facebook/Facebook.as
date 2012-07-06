@@ -125,8 +125,15 @@ public class Facebook extends EventDispatcher {
   }
 
   public static function showDialog(action:String, params:Object):void {
-    if (isSupported)
-      context.call("showDialog", action, params, keys(params));
+    if (isSupported) {
+      // force all to String type
+      var keys:Array = [];
+      for (var key:String in params) {
+        keys.push(key);
+        params[key] = params[key].toString();
+      }
+      context.call("showDialog", action, params, keys);
+    }
   }
 
   public static function get shouldOpenDialogURLInExternalBrowser():Boolean {
@@ -203,7 +210,7 @@ public class Facebook extends EventDispatcher {
     var path:String = null;
     var params:Object = null;
     var method:String = null;
-    var cb:Function = null;    // reference: https://github.com/facebook/facebook-js-sdk/blob/master/src/core/api.js
+    var cb:Function = null;    // reference: https://github.com/facebook/facebook-js-sdk/blob/deprecated/src/core/api.js
     path = args.shift();
     var next:* = args.shift();
     while (next) {
@@ -235,6 +242,68 @@ public class Facebook extends EventDispatcher {
     _instance._pendingRequests[uuid] = cb;
   }
 
+  /** https://developers.facebook.com/docs/reference/javascript/FB.ui/
+   * This is based on the fb javascript sdk, whereby the arguments are inferred by type
+   * @param {Object} params the parameters for the query
+   * @param {Function} cb the callback function to handle the response
+   */
+  public static function ui(params:Object, cb:Function = null):void {
+    if (!params.method) {          // via: https://github.com/facebook/facebook-js-sdk/blob/deprecated/src/core/ui.js
+      trace('"method" is a required parameter for FB.ui().');
+      return;
+    }
+
+    function getUrlVars(url:String):Object {
+      var vars:Object = {};
+      var urlParams:Array = url.slice(url.indexOf('?') + 1).split('&');
+      var urlParamsLength:int = urlParams.length;
+      for (var i:int = 0; i < urlParamsLength; ++i) {
+        var keyvalue:Array = urlParams[i].split('=');
+        var isArrayKey:Boolean = (keyvalue[0].indexOf('[') !== -1);
+        if (isArrayKey) {
+          var keyindex:Array = keyvalue[0].split(/[\[\]]/);
+          if (typeof vars[keyindex[0]] !== 'array') {
+            vars[keyindex[0]] = [];
+          }
+          vars[keyindex[0]][keyindex[1]] = keyvalue[1];
+        }
+        else {
+          vars[keyvalue[0]] = keyvalue[1];
+        }
+      }
+      return vars;
+    }
+
+    function facebook_dialogEvent(event:DialogEvent):void {
+      var result:Object = null;
+      if (event) {
+        if (cb !== null) {
+          if (event.error) {
+            result = {
+              error : event.error
+            };
+          }
+          else {
+            result = getUrlVars(unescape(event.url));
+          }
+          cb(result);
+        }
+        else {
+          // no callback => no one cares
+        }
+      }
+      else {
+        trace("DIALOG ERROR EMPTY EVENT");
+      }
+      Facebook.removeEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
+      Facebook.removeEventListener(DialogEvent.DIALOG_CANCELLED, facebook_dialogEvent);
+      Facebook.removeEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+    }
+    Facebook.addEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
+    Facebook.addEventListener(DialogEvent.DIALOG_CANCELLED, facebook_dialogEvent);
+    Facebook.addEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+    Facebook.showDialog(params.method, params);
+  }
 
   //---------------------------------------------------------------------
   //
@@ -250,10 +319,10 @@ public class Facebook extends EventDispatcher {
   private static function keys(object:Object):Array {
     if (object == null)
       return null;
-    var keys:Array = [];
+    var keysArray:Array = [];
     for (var key:String in object)
-      keys.push(key);
-    return keys;
+      keysArray.push(key);
+    return keysArray;
   }
 
   private static function context_statusEventHandler(event:StatusEvent):void {
