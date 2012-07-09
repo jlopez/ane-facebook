@@ -1,12 +1,15 @@
 package com.jesusla.facebook {
-  import flash.events.Event;
+  import flash.display.MovieClip;
   import flash.events.EventDispatcher;
   import flash.events.StatusEvent;
   import flash.external.ExtensionContext;
   import flash.utils.ByteArray;
-  import flash.utils.Dictionary;
-  import flash.utils.setTimeout;
-
+  // simulator support
+  import com.facebook.graph.FacebookMobile;
+  import com.facebook.graph.data.FacebookSession;
+  import flash.display.Stage;
+  import flash.media.StageWebView;
+  import flash.geom.Rectangle;
   /**
    * Facebook extension
    */
@@ -24,8 +27,11 @@ package com.jesusla.facebook {
     //
     //---------------------------------------------------------------------
     private static var context:ExtensionContext;
-    private static var _isSupported:Boolean;
-    private static var _instance:Facebook;
+    private static var _isSupported:Boolean = false;
+    private static var _instance:Facebook = null;
+    private static var _applicationId:String = null;
+    private static var _accessToken:String = null;
+    private static var _userFbId:String = null;
 
     private var _pendingRequests:Object = {};
 
@@ -45,17 +51,23 @@ package com.jesusla.facebook {
     }
 
     public static function get applicationId():String {
-      if (!isSupported)
-        return null;
-      return context.call("applicationId") as String;
+      if (isSupported)
+        return context.call("applicationId") as String;
+      return _applicationId;
     }
 
     public static function get accessToken():String {
-      if (!isSupported)
-        return null;
-      return context.call("accessToken") as String;
+      if (isSupported)
+        return context.call("accessToken") as String;
+      return _accessToken;
     }
 
+    public static function get userFbId():String {
+      return _userFbId;
+    }
+
+
+    /*
     public static function get expirationDate():Date {
       if (!isSupported)
         return null;
@@ -68,10 +80,50 @@ package com.jesusla.facebook {
         return false;
       return context.call("isFrictionlessRequestsEnabled");
     }
+    */
 
-    public static function login(permissions:String = null):void {
-      if (isSupported)
-        context.call("login", permissions);
+    public static function login(appId:String, stage:Stage=null, permissions:Array = null):void {
+      if (isSupported) {
+        context.call("login", permissions.join());
+      }
+      else {
+        _applicationId = appId;
+        FacebookMobile.init(appId, onFacebookMobileInit);
+
+        function onFacebookMobileInit(success:Object, fail:Object):void
+        {
+          if (success is FacebookSession)
+          {
+            var session:FacebookSession = success as FacebookSession;
+            _accessToken = session.accessToken;
+            _userFbId = session.uid;
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+          }
+          else
+          {
+            var webView:StageWebView = new StageWebView();
+            webView.stage = stage;
+            webView.viewPort = new Rectangle(0, 0, stage.stageWidth, stage.stageHeight);
+            FacebookMobile.login(onFacebookMobileLogin, stage, permissions, webView);
+          }
+        }
+
+        function onFacebookMobileLogin(success:Object, fail:Object):void
+        {
+          if (success is FacebookSession)
+          {
+            var session:FacebookSession = success as FacebookSession;
+            _accessToken = session.accessToken;
+            _userFbId = session.uid;
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+          }
+          else
+          {
+            trace("facebookConnect() failure:", success, fail);
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN_FAILED));
+          }
+        }
+      }
     }
 
     public static function logout():void {
@@ -157,7 +209,7 @@ package com.jesusla.facebook {
     }
 
     public function dialogDidNotComplete(url:String = null):void {
-    dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELLED, url));
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELLED, url));
     }
 
     public function dialogDidFailWithError(error:Object):void {
@@ -236,8 +288,13 @@ package com.jesusla.facebook {
       if (path.charAt(0) === '/') {
         path = path.substr(1);
       }
-
-      var uuid:String = String(context.call("graph", path, params, keys(params), method));
+      // force all to String type
+      var keys:Array = [];
+      for (var key:String in params) {
+        keys.push(key);
+        params[key] = params[key].toString();
+      }
+      var uuid:String = String(context.call("graph", path, params, keys, method));
       _instance._pendingRequests[uuid] = cb;
     }
 
@@ -315,20 +372,27 @@ package com.jesusla.facebook {
     // Private Methods.
     //
     //---------------------------------------------------------------------
-    private static function keys(object:Object):Array {
-      if (object == null)
-        return null;
-      var keysArray:Array = [];
-      for (var key:String in object)
-        keysArray.push(key);
-      return keysArray;
-    }
-
     private static function context_statusEventHandler(event:StatusEvent):void {
       if (event.level == "TICKET")
         context.call("claimTicket", event.code);
-      else if (event.level == "SESSION")
-        _instance.dispatchEvent(new SessionEvent(event.code));
+      else if (event.level == "SESSION") {
+        if (event.code == SessionEvent.LOGIN) {
+          Facebook.api("me", onFacebookGetUserId);
+          function onFacebookGetUserId(response:Object):void {
+            if (response && !response.error) {
+              _userFbId = response.id;
+              _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+            }
+            else {
+              //trace("onFacebookGetUserId Error:" + response.error);
+              _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN_FAILED));
+            }
+          }
+        }
+        else {
+          _instance.dispatchEvent(new SessionEvent(event.code));
+        }
+      }
     }
 
     {
