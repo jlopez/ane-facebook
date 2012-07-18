@@ -1,12 +1,15 @@
 package com.jesusla.facebook {
-  import flash.events.Event;
+  import flash.display.MovieClip;
   import flash.events.EventDispatcher;
   import flash.events.StatusEvent;
   import flash.external.ExtensionContext;
   import flash.utils.ByteArray;
-  import flash.utils.Dictionary;
-  import flash.utils.setTimeout;
-
+  // simulator support
+  import com.facebook.graph.FacebookMobile;
+  import com.facebook.graph.data.FacebookSession;
+  import flash.display.Stage;
+  import flash.media.StageWebView;
+  import flash.geom.Rectangle;
   /**
    * Facebook extension
    */
@@ -24,10 +27,13 @@ package com.jesusla.facebook {
     //
     //---------------------------------------------------------------------
     private static var context:ExtensionContext;
-    private static var _isSupported:Boolean;
-    private static var _instance:Facebook;
+    private static var _isSupported:Boolean = false;
+    private static var _instance:Facebook = null;
+    private static var _applicationId:String = null;
+    private static var _accessToken:String = null;
+    private static var _userFbId:String = null;
 
-    private var _pendingRequests:Object = {}
+    private var _pendingRequests:Object = {};
 
     //---------------------------------------------------------------------
     //
@@ -45,17 +51,23 @@ package com.jesusla.facebook {
     }
 
     public static function get applicationId():String {
-      if (!isSupported)
-        return null;
-      return context.call("applicationId") as String;
+      if (isSupported)
+        return context.call("applicationId") as String;
+      return _applicationId;
     }
 
     public static function get accessToken():String {
-      if (!isSupported)
-        return null;
-      return context.call("accessToken") as String;
+      if (isSupported)
+        return context.call("accessToken") as String;
+      return _accessToken;
     }
 
+    public static function get userFbId():String {
+      return _userFbId;
+    }
+
+
+    /*
     public static function get expirationDate():Date {
       if (!isSupported)
         return null;
@@ -68,10 +80,50 @@ package com.jesusla.facebook {
         return false;
       return context.call("isFrictionlessRequestsEnabled");
     }
+    */
 
-    public static function login(permissions:String = null):void {
-      if (isSupported)
-        context.call("login", permissions);
+    public static function login(appId:String, stage:Stage=null, permissions:Array = null):void {
+      if (isSupported) {
+        context.call("login", permissions.join());
+      }
+      else {
+        _applicationId = appId;
+        FacebookMobile.init(appId, onFacebookMobileInit);
+
+        function onFacebookMobileInit(success:Object, fail:Object):void
+        {
+          if (success is FacebookSession)
+          {
+            var session:FacebookSession = success as FacebookSession;
+            _accessToken = session.accessToken;
+            _userFbId = session.uid;
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+          }
+          else
+          {
+            var webView:StageWebView = new StageWebView();
+            webView.stage = stage;
+            webView.viewPort = new Rectangle(0, 0, stage.stageWidth, stage.stageHeight);
+            FacebookMobile.login(onFacebookMobileLogin, stage, permissions, webView);
+          }
+        }
+
+        function onFacebookMobileLogin(success:Object, fail:Object):void
+        {
+          if (success is FacebookSession)
+          {
+            var session:FacebookSession = success as FacebookSession;
+            _accessToken = session.accessToken;
+            _userFbId = session.uid;
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+          }
+          else
+          {
+            trace("facebookConnect() failure:", success, fail);
+            _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN_FAILED));
+          }
+        }
+      }
     }
 
     public static function logout():void {
@@ -124,8 +176,15 @@ package com.jesusla.facebook {
     }
 
     public static function showDialog(action:String, params:Object):void {
-      if (isSupported)
-        context.call("showDialog", action, params, keys(params));
+      if (isSupported) {
+        // force all to String type
+        var keys:Array = [];
+        for (var key:String in params) {
+          keys.push(key);
+          params[key] = params[key].toString();
+        }
+        context.call("showDialog", action, params, keys);
+      }
     }
 
     public static function get shouldOpenDialogURLInExternalBrowser():Boolean {
@@ -150,7 +209,7 @@ package com.jesusla.facebook {
     }
 
     public function dialogDidNotComplete(url:String = null):void {
-      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELED, url));
+      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELLED, url));
     }
 
     public function dialogDidFailWithError(error:Object):void {
@@ -162,34 +221,144 @@ package com.jesusla.facebook {
     }
 
     public function requestLoading(uuid:String):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADING, getRequest(uuid)));
+    // trace("requestLoading");
     }
 
     public function requestDidReceiveResponse(uuid:String, response:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.response = response;
-      request.dispatchEvent(new RequestEvent(RequestEvent.RESPONSE, request));
+    // trace("requestDidReceiveResponse");
     }
 
     public function requestDidFailWithError(uuid:String, error:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.error = error;
-      request.dispatchEvent(new RequestEvent(RequestEvent.FAILED, request));
-      delete _pendingRequests[uuid]
+    // trace("requestDidFailWithError");
+      var cb:Function = _pendingRequests[uuid];
+      var response:Object = {};
+      response.error = error;
+      cb(response);
+      delete _pendingRequests[uuid];
     }
 
     public function requestDidLoad(uuid:String, result:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.result = result;
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED, request));
-      delete _pendingRequests[uuid]
+      var cb:Function = _pendingRequests[uuid];
+      cb(result);
+      delete _pendingRequests[uuid];
     }
 
     public function requestDidLoadRawResponse(uuid:String, data:ByteArray):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.rawResult = data;
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED_RAW, request));
+    // trace("requestDidLoadRawResponse");
+    }
+
+  /** https://developers.facebook.com/docs/reference/javascript/FB.api/
+   * This is based on the fb javascript sdk, whereby the arguments are inferred by type
+   * @param {String} path the url path
+   * @param {Object} params the parameters for the query
+   * @param {String} method the http method (default "GET")
+   * @param {Function} cb the callback function to handle the response
+   */
+    public static function api(...args):void {
+      if (!_isSupported) {
+        return;
+      }
+      var path:String = null;
+      var params:Object = null;
+      var method:String = null;
+      var cb:Function = null;    // reference: https://github.com/facebook/facebook-js-sdk/blob/deprecated/src/core/api.js
+      path = args.shift();
+      var next:* = args.shift();
+      while (next) {
+        var type:String = typeof next;
+        if (type == 'string' && !method) {
+          method = next.toUpperCase();
+        }
+        else if (type === 'function' && (cb === null)) {
+          cb = next;
+        }
+        else if (type === 'object' && (params === null)) {
+          params = next;
+        }
+        else {
+          trace('Invalid argument passed to FB.api(): ' + next);
+          return;
+        }
+        next = args.shift();
+      }
+      method = method || "GET";
+      params = params || {};
+
+      // remove prefix slash if one is given, as it's already in the base url
+      if (path.charAt(0) === '/') {
+        path = path.substr(1);
+      }
+      // force all to String type
+      var keys:Array = [];
+      for (var key:String in params) {
+        keys.push(key);
+        params[key] = params[key].toString();
+      }
+      var uuid:String = String(context.call("graph", path, params, keys, method));
+      _instance._pendingRequests[uuid] = cb;
+    }
+
+    /** https://developers.facebook.com/docs/reference/javascript/FB.ui/
+     * This is based on the fb javascript sdk, whereby the arguments are inferred by type
+     * @param {Object} params the parameters for the query  
+     * @param {Function} cb the callback function to handle the response
+     */
+    public static function ui(params:Object, cb:Function = null):void {
+      if (!params.method) {          // via: https://github.com/facebook/facebook-js-sdk/blob/deprecated/src/core/ui.js
+        trace('"method" is a required parameter for FB.ui().');
+        return;
+      }
+
+      function getUrlVars(url:String):Object {
+        var vars:Object = {};
+        var urlParams:Array = url.slice(url.indexOf('?') + 1).split('&');
+        var urlParamsLength:int = urlParams.length;
+        for (var i:int = 0; i < urlParamsLength; ++i) {
+          var keyvalue:Array = urlParams[i].split('=');
+          var isArrayKey:Boolean = (keyvalue[0].indexOf('[') !== -1);
+          if (isArrayKey) {
+            var keyindex:Array = keyvalue[0].split(/[\[\]]/);
+            if (typeof vars[keyindex[0]] !== 'array') {
+              vars[keyindex[0]] = [];
+            }
+            vars[keyindex[0]][keyindex[1]] = keyvalue[1];
+          }
+          else {
+            vars[keyvalue[0]] = keyvalue[1];
+          }
+        }
+        return vars;
+      }
+
+      function facebook_dialogEvent(event:DialogEvent):void {
+        var result:Object = null;
+        if (event) {
+          if (cb !== null) {
+            if (event.error) {
+              result = {
+                error : event.error
+              };
+            }
+            else {
+              result = getUrlVars(unescape(event.url));
+            }
+            cb(result);
+          }
+          else {
+            // no callback => no one cares
+          }
+        }
+        else {
+          trace("DIALOG ERROR EMPTY EVENT");
+        }
+        Facebook.removeEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
+        Facebook.removeEventListener(DialogEvent.DIALOG_CANCELLED, facebook_dialogEvent);
+        Facebook.removeEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+      }
+      Facebook.addEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
+      Facebook.addEventListener(DialogEvent.DIALOG_CANCELLED, facebook_dialogEvent);
+      Facebook.addEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+      Facebook.showDialog(params.method, params);
     }
 
     //---------------------------------------------------------------------
@@ -197,39 +366,33 @@ package com.jesusla.facebook {
     // Internal (package level) Methods.
     //
     //---------------------------------------------------------------------
-    internal static function api(request:FacebookRequest, path:String, params:Object = null, httpMethod:String = null):void {
-      if (!isSupported)
-        return;
-      request.uuid = String(context.call("graph", path, params, keys(params), httpMethod));
-      _instance._pendingRequests[request.uuid] = request;
-    }
-
-    private function getRequest(uuid:String):FacebookRequest {
-      var request:FacebookRequest = _pendingRequests[uuid];
-      if (!request)
-        throw new Error("Unknown request for uuid " + uuid);
-      return request;
-    }
 
     //---------------------------------------------------------------------
     //
     // Private Methods.
     //
     //---------------------------------------------------------------------
-    private static function keys(object:Object):Array {
-      if (object == null)
-        return null;
-      var keys:Array = [];
-      for (var key:String in object)
-        keys.push(key);
-      return keys;
-    }
-
     private static function context_statusEventHandler(event:StatusEvent):void {
       if (event.level == "TICKET")
         context.call("claimTicket", event.code);
-      else if (event.level == "SESSION")
-        _instance.dispatchEvent(new SessionEvent(event.code));
+      else if (event.level == "SESSION") {
+        if (event.code == SessionEvent.LOGIN) {
+          Facebook.api("me", onFacebookGetUserId);
+          function onFacebookGetUserId(response:Object):void {
+            if (response && !response.error) {
+              _userFbId = response.id;
+              _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN));
+            }
+            else {
+              //trace("onFacebookGetUserId Error:" + response.error);
+              _instance.dispatchEvent(new SessionEvent(SessionEvent.LOGIN_FAILED));
+            }
+          }
+        }
+        else {
+          _instance.dispatchEvent(new SessionEvent(event.code));
+        }
+      }
     }
 
     {
