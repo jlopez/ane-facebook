@@ -19,7 +19,7 @@
 		A563F0431558901000D5EB48 /* FBLoginDialog.h in Headers */ = {isa = PBXBuildFile; fileRef = A563F0261558900F00D5EB48 /* FBLoginDialog.h */; };
 		A563F0441558901000D5EB48 /* FBLoginDialog.m in Sources */ = {isa = PBXBuildFile; fileRef = A563F0271558900F00D5EB48 /* FBLoginDialog.m */; };
 		A563F0451558901000D5EB48 /* FBRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = A563F0281558900F00D5EB48 /* FBRequest.h */; };
-		A563F0461558901000D5EB48 /* FBRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = A563F0291558900F00D5EB48 /* FBRequest.m */; };
+		A563F0461558901000D5EB48 /* FBRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = A563F0291558900F00D5EB48 /* FBRequest.m */; settings = {COMPILER_FLAGS = "-Wno-objc-redundant-literal-use"; }; };
 		A563F0471558901000D5EB48 /* JSON.h in Headers */ = {isa = PBXBuildFile; fileRef = A563F02B1558900F00D5EB48 /* JSON.h */; };
 		A563F0481558901000D5EB48 /* NSObject+SBJSON.h in Headers */ = {isa = PBXBuildFile; fileRef = A563F02C1558900F00D5EB48 /* NSObject+SBJSON.h */; };
 		A563F0491558901000D5EB48 /* NSObject+SBJSON.m in Sources */ = {isa = PBXBuildFile; fileRef = A563F02D1558900F00D5EB48 /* NSObject+SBJSON.m */; };

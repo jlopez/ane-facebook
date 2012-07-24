@@ -1,6 +1,6 @@
 //
-//  ChartbootLib.mm
-//  ChartbootLib
+//  FacebookLib.mm
+//  FacebookLib
 //
 //  Created by Jesus Lopez on 05/07/2012
 //  Copyright (c) 2012 JLA. All rights reserved.
@@ -16,7 +16,7 @@ static NSString *const FBAppIdKey = @"FBAppID";
 static NSString *const FBPermissionsKey = @"FBPermissions";
 
 static NSString *const FBLoginEvent = @"LOGIN";
-static NSString *const FBLoginCancelledEvent = @"LOGIN_CANCELLED";
+static NSString *const FBLoginCanceledEvent = @"LOGIN_CANCELED";
 static NSString *const FBLoginFailedEvent = @"LOGIN_FAILED";
 static NSString *const FBLogoutEvent = @"LOGOUT";
 static NSString *const FBAccessTokenExtendedEvent = @"ACCESS_TOKEN_EXTENDED";
@@ -30,7 +30,6 @@ static NSString *const FBSessionInvalidatedEvent = @"SESSION_INVALIDATED";
 }
 
 @property (nonatomic, readonly) NSString *applicationId;
-@property (nonatomic, assign) BOOL shouldOpenDialogURLInExternalBrowser;
 
 @end
 
@@ -61,18 +60,14 @@ FN_BEGIN(FacebookLib)
   FN(reloadFrictionlessRecipientCache, reloadFrictionlessRecipientCache)
   FN(isFrictionlessEnabledForRecipient, isFrictionlessEnabledForRecipient:)
   FN(isFrictionlessEnabledForRecipients, isFrictionlessEnabledForRecipients:)
-  FN(showDialog, dialog:params:paramsProperties:)
-  FN(shouldOpenDialogURLInExternalBrowser, shouldOpenDialogURLInExternalBrowser)
-  FN(setShouldOpenDialogURLInExternalBrowser, setShouldOpenDialogURLInExternalBrowser:)
-  FN(graph, requestWithGraphPath:params:paramsProperties:httpMethod:)
+  FN(showDialog, dialog:params:)
+  FN(graph, requestWithGraphPath:params:httpMethod:)
 FN_END
 
 @synthesize applicationId;
-@synthesize shouldOpenDialogURLInExternalBrowser;
 
 - (id)init {
   if (self = [super init]) {
-    shouldOpenDialogURLInExternalBrowser = YES;
     pendingRequests = [NSMutableDictionary new];
   }
   return self;
@@ -118,7 +113,8 @@ FN_END
   if (loginPermissions) {
     NSString *oldPermissions = [defaults objectForKey:FBAutoLoginPermissionsKey];
     if (![facebook isSessionValid] || ![oldPermissions isEqualToString:loginPermissions]) {
-      [self loginWithPermissions:loginPermissions];
+      NSArray *permArray = [loginPermissions length] ? [loginPermissions componentsSeparatedByString:@","] : nil;
+      [self loginWithPermissions:permArray];
       [defaults setObject:loginPermissions forKey:FBAutoLoginPermissionsKey];
       [defaults synchronize];
     }
@@ -140,9 +136,9 @@ FN_END
   [self sendEventWithCode:FBLoginEvent level:@"SESSION"];
 }
 
-- (void)fbDidNotLogin:(BOOL)cancelled {
-  if (cancelled)
-    [self sendEventWithCode:FBLoginCancelledEvent level:@"SESSION"];
+- (void)fbDidNotLogin:(BOOL)canceled {
+  if (canceled)
+    [self sendEventWithCode:FBLoginCanceledEvent level:@"SESSION"];
   else
     [self sendEventWithCode:FBLoginFailedEvent level:@"SESSION"];
 }
@@ -170,9 +166,8 @@ FN_END
   return facebook.expirationDate;
 }
 
-- (void)loginWithPermissions:(NSString *)permissions {
-  NSArray *permArray = [permissions length] ? [permissions componentsSeparatedByString:@","] : nil;
-  [facebook authorize:permArray];
+- (void)loginWithPermissions:(NSArray *)permissions {
+  [facebook authorize:permissions];
 }
 
 - (void)logout {
@@ -215,35 +210,36 @@ FN_END
   return [facebook isFrictionlessEnabledForRecipients:fbids];
 }
 
-- (void)requestWithMethodName:(NSString *)methodName params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
-  [facebook requestWithMethodName:methodName andParams:[params dictionaryWithProperties:paramsProperties, nil] andHttpMethod:httpMethod andDelegate:self];
+NSMutableDictionary *sanitizeParams(NSMutableDictionary *params) {
+  if (!params)
+    return [NSMutableDictionary dictionary];
+  for (NSString *key in params) {
+    id val = [params objectForKey:key];
+    if (![val isKindOfClass:[NSString class]])
+      [params setObject:[val description] forKey:key];
+  }
+  return params;
 }
 
-- (NSString *)requestWithGraphPath:(NSString *)graphPath params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties httpMethod:(NSString *)httpMethod {
-  NSMutableDictionary *dict = [params dictionaryWithProperties:paramsProperties, nil];
-  if (!dict)
-    dict = [NSMutableDictionary dictionary];
+- (void)requestWithMethodName:(NSString *)methodName params:(NSMutableDictionary *)params httpMethod:(NSString *)httpMethod {
+  params = sanitizeParams(params);
+  [facebook requestWithMethodName:methodName andParams:params andHttpMethod:httpMethod andDelegate:self];
+}
+
+- (NSString *)requestWithGraphPath:(NSString *)graphPath params:(NSMutableDictionary *)params httpMethod:(NSString *)httpMethod {
+  params = sanitizeParams(params);
   if (!httpMethod)
     httpMethod = @"GET";
   JLRequestWrapper *wrapper = [JLRequestWrapper new];
   [pendingRequests setObject:wrapper forKey:wrapper.uuid];
   wrapper.lib = self;
-  wrapper.request = [facebook requestWithGraphPath:graphPath andParams:dict andHttpMethod:httpMethod andDelegate:wrapper];
+  wrapper.request = [facebook requestWithGraphPath:graphPath andParams:params andHttpMethod:httpMethod andDelegate:wrapper];
   return wrapper.uuid;
 }
 
-- (void)dialog:(NSString *)action params:(ASObject *)params paramsProperties:(NSArray *)paramsProperties {
-  [facebook dialog:action andParams:[params dictionaryWithProperties:paramsProperties, nil] andDelegate:self];
-}
-
-/**
- * Called when the dialog succeeds and is about to be dismissed.
- */
-- (void)dialogDidComplete:(FBDialog *)dialog {
-  ANELog(@"%s: %@", __PRETTY_FUNCTION__, dialog);
-  [self executeOnActionScriptThread:^{
-    [self callMethodNamed:@"dialogDidComplete"];
-  }];
+- (void)dialog:(NSString *)action params:(NSMutableDictionary *)params {
+  params = sanitizeParams(params);
+  [facebook dialog:action andParams:params andDelegate:self];
 }
 
 /**
@@ -267,16 +263,6 @@ FN_END
 }
 
 /**
- * Called when the dialog is cancelled and is about to be dismissed.
- */
-- (void)dialogDidNotComplete:(FBDialog *)dialog {
-  ANELog(@"%s: %@", __PRETTY_FUNCTION__, dialog);
-  [self executeOnActionScriptThread:^{
-    [self callMethodNamed:@"dialogDidNotComplete"];
-  }];
-}
-
-/**
  * Called when dialog failed to load due to an error.
  */
 - (void)dialog:(FBDialog*)dialog didFailWithError:(NSError *)error {
@@ -284,26 +270,6 @@ FN_END
   [self executeOnActionScriptThread:^{
     [self callMethodNamed:@"dialogDidFailWithError" withArgument:error];
   }];
-}
-
-/**
- * Asks if a link touched by a user should be opened in an external browser.
- *
- * If a user touches a link, the default behavior is to open the link in the Safari browser,
- * which will cause your app to quit.  You may want to prevent this from happening, open the link
- * in your own internal browser, or perhaps warn the user that they are about to leave your app.
- * If so, implement this method on your delegate and return NO.  If you warn the user, you
- * should hold onto the URL and once you have received their acknowledgement open the URL yourself
- * using [[UIApplication sharedApplication] openURL:].
- */
-- (BOOL)dialog:(FBDialog*)dialog shouldOpenURLInExternalBrowser:(NSURL *)url {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, dialog, url);
-  if (shouldOpenDialogURLInExternalBrowser)
-    return YES;
-  [self executeOnActionScriptThread:^{
-    [self callMethodNamed:@"dialogOpenUrl" withArgument:[url absoluteURL]];
-  }];
-  return NO;
 }
 
 @end
@@ -333,9 +299,6 @@ FN_END
  */
 - (void)requestLoading:(FBRequest *)request_ {
   ANELog(@"%s: %@", __PRETTY_FUNCTION__, request_);
-  [lib executeOnActionScriptThread:^{
-    [lib callMethodNamed:@"requestLoading" withArgument:uuid];
-  }];
 }
 
 /**
@@ -347,9 +310,6 @@ FN_END
  */
 - (void)request:(FBRequest *)request_ didReceiveResponse:(NSURLResponse *)response {
   ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, response);
-  [lib executeOnActionScriptThread:^{
-    [lib callMethodNamed:@"requestDidReceiveResponse" withArguments:[NSArray arrayWithObjects:uuid, response, nil]];
-  }];
 }
 
 /**
@@ -387,9 +347,6 @@ FN_END
  */
 - (void)request:(FBRequest *)request_ didLoadRawResponse:(NSData *)data {
   ANELog(@"%s: %@ NSData (%d bytes)", __PRETTY_FUNCTION__, request_, [data length]);
-  [lib executeOnActionScriptThread:^{
-    [lib callMethodNamed:@"requestDidLoadRawResponse" withArguments:[NSArray arrayWithObjects:uuid, data, nil]];
-  }];
 }
 
 @end

@@ -1,10 +1,11 @@
 package com.jesusla.facebook {
+  import flash.display.Stage;
   import flash.events.Event;
   import flash.events.EventDispatcher;
-  import flash.events.StatusEvent;
   import flash.external.ExtensionContext;
   import flash.utils.ByteArray;
   import flash.utils.Dictionary;
+  import flash.utils.getQualifiedClassName;
   import flash.utils.setTimeout;
 
   /**
@@ -23,11 +24,7 @@ package com.jesusla.facebook {
     // Private Properties.
     //
     //---------------------------------------------------------------------
-    private static var context:ExtensionContext;
-    private static var _isSupported:Boolean;
     private static var _instance:Facebook;
-
-    private var _pendingRequests:Object = {}
 
     //---------------------------------------------------------------------
     //
@@ -37,209 +34,136 @@ package com.jesusla.facebook {
     public function Facebook() {
       if (_instance)
         throw new Error("Singleton");
-      _instance = this;
     }
 
-    public static function get isSupported():Boolean {
-      return _isSupported;
+    public static function init(applicationId:String, stage:Stage):void {
+      instance.init(applicationId, stage);
     }
 
     public static function get applicationId():String {
-      if (!isSupported)
-        return null;
-      return context.call("applicationId") as String;
+      return instance.applicationId;
     }
 
     public static function get accessToken():String {
-      if (!isSupported)
-        return null;
-      return context.call("accessToken") as String;
+      return instance.accessToken;
     }
 
     public static function get expirationDate():Date {
-      if (!isSupported)
-        return null;
-      var date:String = context.call("expirationDate") as String;
-      return date ? new Date(date) : null;
+      return instance.expirationDate;
     }
 
     public static function get isFrictionlessRequestsEnabled():Boolean {
-      if (!isSupported)
-        return false;
-      return context.call("isFrictionlessRequestsEnabled");
+      return instance.isFrictionlessRequestsEnabled;
     }
 
-    public static function login(permissions:String = null):void {
-      if (isSupported)
-        context.call("login", permissions);
+    public static function login(permissions:Array = null):void {
+      instance.login(permissions);
     }
 
     public static function logout():void {
-      if (isSupported)
-        context.call("logout");
+      instance.logout();
     }
 
     public static function extendAccessToken():void {
-      if (isSupported)
-        context.call("extendAccessToken");
+      instance.extendAccessToken();
     }
 
     public static function extendAccessTokenIfNeeded():void {
-      if (isSupported)
-        context.call("extendAccessTokenIfNeeded");
+      instance.extendAccessTokenIfNeeded();
     }
 
     public static function get shouldExtendAccessToken():Boolean {
-      if (!isSupported)
-        return false;
-      return context.call("shouldExtendAccessToken");
+      return instance.shouldExtendAccessToken;
     }
 
     public static function get isSessionValid():Boolean {
-      if (!isSupported)
-        return false;
-      return context.call("isSessionValid");
+      return instance.isSessionValid;
     }
 
     public static function enableFrictionlessRequests():void {
-      if (isSupported)
-        context.call("enableFrictionlessRequests");
+      instance.enableFrictionlessRequests();
     }
 
     public static function reloadFrictionlessRecipientCache():void {
-      if (isSupported)
-        context.call("reloadFrictionlessRecipientCache");
+      instance.reloadFrictionlessRecipientCache();
     }
 
     public static function isFrictionlessEnabledForRecipient(fbid:String):Boolean {
-      if (!isSupported)
-        return false;
-      return context.call("isFrictionlessEnabledForRecipient", fbid);
+      return instance.isFrictionlessEnabledForRecipient(fbid);
     }
 
     public static function isFrictionlessEnabledForRecipients(fbids:Array):Boolean {
-      if (!isSupported)
-        return false;
-      return context.call("isFrictionlessEnabledForRecipients", fbids);
+      return isFrictionlessEnabledForRecipients(fbids);
     }
 
-    public static function showDialog(action:String, params:Object):void {
-      if (isSupported)
-        context.call("showDialog", action, params, keys(params));
+    public static function ui(params:Object, cb:Function = null):void {
+      instance.ui(params, cb);
     }
 
-    public static function get shouldOpenDialogURLInExternalBrowser():Boolean {
-      return !isSupported || context.call("shouldOpenDialogURLInExternalBrowser");
-    }
-
-    public static function set shouldOpenDialogURLInExternalBrowser(value:Boolean):void {
-      if (isSupported)
-        context.call("setShouldOpenDialogURLInExternalBrowser", value);
+    public static function api(...args):void {
+      var path:String = args.shift();
+      var params:Object = null;
+      var method:String = null;
+      var cb:Function = null;
+      for (var next:* = args.shift(); next; next = args.shift()) {
+        if (next is String && !method)
+          method = next.toUpperCase();
+        else if (next is Function && cb == null)
+          cb = next;
+        else if (getQualifiedClassName(next) == 'Object' && params == null)
+          params = next;
+        else
+          throw new ArgumentError("Invalid argument passed to Facebook.api(): " + next);
+      }
+      if (path.charAt(0) === '/')
+        path = path.substr(1);
+      instance.api(path, cb, params, method || 'GET');
     }
 
     public static function addEventListener(event:String, listener:Function):void {
-      _instance.addEventListener(event, listener);
+      instance.addEventListener(event, listener);
     }
 
     public static function removeEventListener(event:String, listener:Function):void {
-      _instance.removeEventListener(event, listener);
+      instance.removeEventListener(event, listener);
     }
 
-    public function dialogDidComplete(url:String = null):void {
-      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_COMPLETED, url));
-    }
-
-    public function dialogDidNotComplete(url:String = null):void {
-      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_CANCELED, url));
-    }
-
-    public function dialogDidFailWithError(error:Object):void {
-      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_FAILED, null, error));
-    }
-
-    public function dialogOpenUrl(url:String):void {
-      dispatchEvent(new DialogEvent(DialogEvent.DIALOG_OPEN_URL, url));
-    }
-
-    public function requestLoading(uuid:String):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADING, getRequest(uuid)));
-    }
-
-    public function requestDidReceiveResponse(uuid:String, response:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.response = response;
-      request.dispatchEvent(new RequestEvent(RequestEvent.RESPONSE, request));
-    }
-
-    public function requestDidFailWithError(uuid:String, error:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.error = error;
-      request.dispatchEvent(new RequestEvent(RequestEvent.FAILED, request));
-      delete _pendingRequests[uuid]
-    }
-
-    public function requestDidLoad(uuid:String, result:Object):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.result = result;
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED, request));
-      delete _pendingRequests[uuid]
-    }
-
-    public function requestDidLoadRawResponse(uuid:String, data:ByteArray):void {
-      var request:FacebookRequest = getRequest(uuid);
-      request.rawResult = data;
-      request.dispatchEvent(new RequestEvent(RequestEvent.LOADED_RAW, request));
-    }
-
-    //---------------------------------------------------------------------
-    //
-    // Internal (package level) Methods.
-    //
-    //---------------------------------------------------------------------
-    internal static function api(request:FacebookRequest, path:String, params:Object = null, httpMethod:String = null):void {
-      if (!isSupported)
-        return;
-      request.uuid = String(context.call("graph", path, params, keys(params), httpMethod));
-      _instance._pendingRequests[request.uuid] = request;
-    }
-
-    private function getRequest(uuid:String):FacebookRequest {
-      var request:FacebookRequest = _pendingRequests[uuid];
-      if (!request)
-        throw new Error("Unknown request for uuid " + uuid);
-      return request;
-    }
+    internal function init(applicationId:String, stage:Stage):void { pureVirtual(); }
+    internal function get applicationId():String { return pureVirtual(); }
+    internal function get accessToken():String { return pureVirtual(); }
+    internal function get expirationDate():Date { return pureVirtual(); }
+    internal function get isFrictionlessRequestsEnabled():Boolean { return pureVirtual(); }
+    internal function login(permissions:Array = null):void { pureVirtual(); }
+    internal function logout():void { pureVirtual(); }
+    internal function extendAccessToken():void { pureVirtual(); }
+    internal function extendAccessTokenIfNeeded():void { pureVirtual(); }
+    internal function get shouldExtendAccessToken():Boolean { return pureVirtual(); }
+    internal function get isSessionValid():Boolean { return pureVirtual(); }
+    internal function enableFrictionlessRequests():void { pureVirtual(); }
+    internal function reloadFrictionlessRecipientCache():void { pureVirtual(); }
+    internal function isFrictionlessEnabledForRecipient(fbid:String):Boolean { return pureVirtual(); }
+    internal function isFrictionlessEnabledForRecipients(fbids:Array):Boolean { return pureVirtual(); }
+    internal function ui(params:Object, cb:Function = null):void { pureVirtual(); }
+    internal function api(path:String, cb:Function, params:Object, method:String):void { pureVirtual(); }
 
     //---------------------------------------------------------------------
     //
     // Private Methods.
     //
     //---------------------------------------------------------------------
-    private static function keys(object:Object):Array {
-      if (object == null)
-        return null;
-      var keys:Array = [];
-      for (var key:String in object)
-        keys.push(key);
-      return keys;
+    private function pureVirtual():* {
+      throw new Error("Pure Virtual");
+      return null;
     }
 
-    private static function context_statusEventHandler(event:StatusEvent):void {
-      if (event.level == "TICKET")
-        context.call("claimTicket", event.code);
-      else if (event.level == "SESSION")
-        _instance.dispatchEvent(new SessionEvent(event.code));
-    }
-
-    {
-      new Facebook();
-      context = ExtensionContext.createExtensionContext(EXTENSION_ID, "FacebookLib");
-      if (context) {
-        _isSupported = context.actionScriptData;
-        context.addEventListener(StatusEvent.STATUS, context_statusEventHandler);
-        context.actionScriptData = _instance;
+    private static function get instance():Facebook {
+      if (_instance == null) {
+        var _ctx:ExtensionContext =
+          ExtensionContext.createExtensionContext(EXTENSION_ID, "FacebookLib");
+        var _isSupported:Boolean = _ctx ? _ctx.actionScriptData : false;
+        _instance = _isSupported ? new NativeFacebook(_ctx) : new EmulatedFacebook();
       }
+      return _instance;
     }
   }
 }

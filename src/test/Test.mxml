@@ -8,19 +8,7 @@
 
     <fx:Script><![CDATA[
       import com.jesusla.facebook.Facebook;
-      import com.jesusla.facebook.FacebookRequest;
-      import com.jesusla.facebook.DialogEvent;
-      import com.jesusla.facebook.RequestEvent;
       import com.jesusla.facebook.SessionEvent;
-
-      private function parseDict(s:String):Object {
-        var rv:Object = {};
-        var parts:Array = s.split(',');
-        var len:int = parts.length & ~1;
-        for (var i:int = 0; i < len; i += 2)
-          rv[parts[i]] = parts[i + 1];
-        return rv;
-      }
 
       private function applicationCompleteHandler():void {
         Facebook.addEventListener(SessionEvent.LOGIN, facebook_sessionEvent);
@@ -29,22 +17,11 @@
         Facebook.addEventListener(SessionEvent.LOGOUT, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.ACCESS_TOKEN_EXTENDED, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.SESSION_INVALIDATED, facebook_sessionEvent);
-
-        Facebook.addEventListener(DialogEvent.DIALOG_COMPLETED, facebook_dialogEvent);
-        Facebook.addEventListener(DialogEvent.DIALOG_CANCELED, facebook_dialogEvent);
-        Facebook.addEventListener(DialogEvent.DIALOG_FAILED, facebook_dialogEvent);
+        Facebook.init("435432429830213", stage);
       }
 
       private function facebook_sessionEvent(event:SessionEvent):void {
         log("SessionEvent(" + event.type + ")");
-      }
-
-      private function facebook_dialogEvent(event:DialogEvent):void {
-        log("DialogEvent(" + event.type + ")");
-        if (event.url)
-          log("  url: " + event.url)
-        if (event.error)
-          logDump("  ", "error", event.error);
       }
 
       private function log(msg:String):void {
@@ -58,56 +35,58 @@
         log(indent + "}");
       }
 
-      private function showDialog():void {
-        var dialog:String = arg1.text;
-        var params:* = arg2.text;
-        if (params.length)
-          params = parseDict(params)
-        else
-          params = {
-            app_id: "435432429830213",
-            link: "http://apps.facebook.com/mj-bubble-spinner/",
-            picture: "http://fbrell.com/f8.jpg",
-            name: "Facebook Dialogs",
-            caption: "Reference Documentation",
-            description: "Using Dialogs to interact with users"
-          }
-        if (!dialog.length)
-          dialog = "feed";
-        logDump("", "showDialog('" + dialog + "', ", params);
-        Facebook.showDialog(dialog, params);
+      private function feed():void {
+        var params:Object = {
+          method: "feed",
+          link: "http://apps.facebook.com/mj-bubble-spinner/",
+          picture: "http://fbrell.com/f8.jpg",
+          name: "Facebook Dialogs",
+          caption: "Reference Documentation",
+          description: "Using Dialogs to interact with users"
+        }
+        Facebook.ui(params, callback);
       }
 
-      private function api():void {
-        var path:String = arg1.text;
-        var params:* = arg2.text;
-        if (!path.length)
-          path = "me";
-        if (params.length)
-          params = parseDict(params)
-        else
-          params = {}
-        logDump("", "api('" + path + "', ", params);
-        var request:FacebookRequest = new FacebookRequest();
-        request.addEventListener(RequestEvent.LOADING, request_requestEvent);
-        request.addEventListener(RequestEvent.RESPONSE, request_requestEvent);
-        request.addEventListener(RequestEvent.FAILED, request_requestEvent);
-        request.addEventListener(RequestEvent.LOADED, request_requestEvent);
-        request.addEventListener(RequestEvent.LOADED_RAW, request_requestEvent);
-        request.api(path, params);
+      private function oauth():void {
+        var params:Object = {
+          method: "oauth",
+          client_id: "435432429830213",
+          scope: "read_mailbox",
+          state: "test.mxml"
+        }
+        Facebook.ui(params, callback);
       }
 
-      private function request_requestEvent(event:RequestEvent):void {
-        log("RequestEvent(" + event.type + ")");
-        var r:FacebookRequest = event.request;
-        if (r.response)
-          logDump("  ", "response", r.response);
-        if (r.error)
-          logDump("  ", "error", r.error);
-        if (r.result)
-          logDump("  ", "result", r.result);
-        if (r.rawResult)
-          logDump("  ", "rawResult", r.rawResult);
+      private function requests():void {
+        var params:Object = {
+          method: "apprequests",
+          message: "Sample Request Message",
+          data: "Request Data",
+          title: "Sample Request"
+        }
+        Facebook.ui(params, callback);
+      }
+
+      private function me():void {
+        Facebook.api("me", callback)
+      }
+
+      private function callback(response:Object):void {
+        if (response.error)
+          logDump("", "error", response.error);
+        else
+          logDump("", "response", response);
+      }
+
+      private function fbId():void {
+        Facebook.api("me", { fields: "id" }, callback);
+
+        function callback(response:Object):void {
+          if (response.error)
+            logDump("", "error", response.error);
+          else
+            logDump("", "response", response);
+        }
       }
     ]]></fx:Script>
 
@@ -122,24 +101,17 @@
       <s:HGroup width="80%" verticalAlign="middle">
         <s:Button label="tok" click="log(Facebook.accessToken)"/>
         <s:Button label="exp" click="log(String(Facebook.expirationDate))"/>
-        <s:Button label="login(a)" click="Facebook.login(arg1.text)"/>
-        <s:Button label="logout" click="Facebook.logout()"/>
+        <s:Button label="in" click="Facebook.login()"/>
+        <s:Button label="out" click="Facebook.logout()"/>
+        <s:Button label="ext" click="Facebook.extendAccessToken()"/>
+        <s:Button label="n?" click="log(String(Facebook.shouldExtendAccessToken))"/>
       </s:HGroup>
       <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="dlg(a,b)" click="showDialog()"/>
-        <s:Button label="api(a,b)" click="api()"/>
+        <s:Button label="feed" click="feed()"/>
+        <s:Button label="oauth" click="oauth()"/>
+        <s:Button label="req" click="requests()"/>
+        <s:Button label="/me" click="me()"/>
       </s:HGroup>
-
-      <s:VGroup width="80%">
-        <s:HGroup width="100%" verticalAlign="middle">
-          <s:Label text="a:"/>
-          <s:TextInput id="arg1" width="100%"/>
-        </s:HGroup>
-        <s:HGroup width="100%" verticalAlign="middle">
-          <s:Label text="b:"/>
-          <s:TextArea id="arg2" width="100%"/>
-        </s:HGroup>
-      </s:VGroup>
 
       <s:TextArea id="console" fontSize="14" height="100%" width="80%"/>
 
