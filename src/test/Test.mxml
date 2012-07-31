@@ -12,7 +12,7 @@
 
       private function applicationCompleteHandler():void {
         Facebook.addEventListener(SessionEvent.LOGIN, facebook_sessionEvent);
-        Facebook.addEventListener(SessionEvent.LOGIN_CANCELLED, facebook_sessionEvent);
+        Facebook.addEventListener(SessionEvent.LOGIN_CANCELED, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.LOGIN_FAILED, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.LOGOUT, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.ACCESS_TOKEN_EXTENDED, facebook_sessionEvent);
