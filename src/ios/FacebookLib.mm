@@ -213,7 +213,7 @@ FN_END
 NSMutableDictionary *sanitizeParams(NSMutableDictionary *params) {
   if (!params)
     return [NSMutableDictionary dictionary];
-  for (NSString *key in params) {
+  for (NSString *key in [params allKeys]) {
     id val = [params objectForKey:key];
     if (![val isKindOfClass:[NSString class]])
       [params setObject:[val description] forKey:key];

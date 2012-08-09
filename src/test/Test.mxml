@@ -62,7 +62,9 @@
           method: "apprequests",
           message: "Sample Request Message",
           data: "Request Data",
-          title: "Sample Request"
+          title: "Sample Request",
+          max_recipients: 1,
+          to: 100000657574837
         }
         Facebook.ui(params, callback);
       }
