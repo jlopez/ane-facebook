@@ -9,6 +9,8 @@ package com.jesusla.facebook {
    */
   public class NativeFacebook extends Facebook {
     private var context:ExtensionContext;
+    private var _objectPool:Object = {};
+    private var _objectPoolId:int = 0;
     private var _pendingRequests:Object = {};
     private var _dialogCallback:Function;
 
@@ -32,8 +34,7 @@ package com.jesusla.facebook {
     }
 
     override internal function get expirationDate():Date {
-      var date:String = context.call("expirationDate") as String;
-      return date ? new Date(date) : null;
+      return context.call("expirationDate") as Date;
     }
 
     override internal function get isFrictionlessRequestsEnabled():Boolean {
@@ -123,6 +124,15 @@ package com.jesusla.facebook {
       for (var key:String in obj)
         keys.push(key);
       return keys;
+    }
+
+    public function __retainObject(obj:Object):int {
+      _objectPool[++_objectPoolId] = obj;
+      return _objectPoolId;
+    }
+
+    public function __getObject(id:int):Object {
+      return _objectPool[id];
     }
 
     //---------------------------------------------------------------------
