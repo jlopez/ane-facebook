@@ -154,26 +154,36 @@ package com.jesusla.facebook {
     }
 
     private function responseFromUrl(url:String):Object {
-      url = unescape(url);
+      url = decodeURI(url);
       var rv:Object = {};
-      var pos:int = url.indexOf('?');
-      if (pos === -1)
-        return rv;
+      var query:int = url.indexOf('?');
+      var ref:int = url.indexOf('#', query + 1);
+      if (query != -1)
+        decodeUrl(rv, ref == -1 ? url.substr(query + 1) :
+                                  url.substr(query + 1, ref));
+      if (ref != -1)
+        decodeUrl(rv, url.substr(ref + 1));
+      return rv;
+    }
 
-      var urlParams:Array = url.slice(pos + 1).split('&');
+    private function decodeUrl(rv:Object, s:String):void {
+      var urlParams:Array = s.split('&');
       var len:int = urlParams.length;
       for (var i:int = 0; i < len; ++i) {
         var kv:Array = urlParams[i].split('=');
-        if (kv[0].indexOf('[') !== -1) {
-          var ki:Array = kv[0].split(/[\[\]]/);
+        if (kv.length != 2)
+          continue;
+        var k:String = decodeURIComponent(kv[0]);
+        var v:String = decodeURIComponent(kv[1]);
+        if (k.indexOf('[') !== -1) {
+          var ki:Array = k.split(/[\[\]]/);
           if (!(rv[ki[0]] is Array))
             rv[ki[0]] = [];
-          rv[ki[0]][ki[1]] = kv[1];
+          rv[ki[0]][ki[1]] = v;
         }
         else
-          rv[kv[0]] = kv[1];
+          rv[k] = v;
       }
-      return rv;
     }
 
     private function context_statusEventHandler(event:StatusEvent):void {

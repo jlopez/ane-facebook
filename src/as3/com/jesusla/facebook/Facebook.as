@@ -117,7 +117,7 @@ package com.jesusla.facebook {
       }
       if (path.charAt(0) === '/')
         path = path.substr(1);
-      instance.api(path, cb, params, method || 'GET');
+      instance.api(path, cb, params || {}, method || 'GET');
     }
 
     public static function addEventListener(event:String, listener:Function):void {
@@ -159,9 +159,16 @@ package com.jesusla.facebook {
     private static function get instance():Facebook {
       if (_instance == null) {
         var _ctx:ExtensionContext =
-          ExtensionContext.createExtensionContext(EXTENSION_ID, "FacebookLib");
-        var _isSupported:Boolean = _ctx ? _ctx.actionScriptData : false;
-        _instance = _isSupported ? new NativeFacebook(_ctx) : new EmulatedFacebook();
+          ExtensionContext.createExtensionContext(EXTENSION_ID, EXTENSION_ID + ".FacebookLib");
+        if (_ctx) {
+          try {
+            _instance = new NativeFacebook(_ctx);
+          } catch (e:ArgumentError) {
+            throw e;
+          }
+        }
+        if (_instance == null)
+          _instance = new EmulatedFacebook();
       }
       return _instance;
     }

@@ -18,6 +18,7 @@
         Facebook.addEventListener(SessionEvent.ACCESS_TOKEN_EXTENDED, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.SESSION_INVALIDATED, facebook_sessionEvent);
         Facebook.init("435432429830213", stage);
+        showFrictionlessRequestsStatus();
       }
 
       private function facebook_sessionEvent(event:SessionEvent):void {
@@ -63,8 +64,8 @@
           message: "Sample Request Message",
           data: "Request Data",
           title: "Sample Request",
-          max_recipients: 1,
-          to: 100000657574837
+          max_recipients: "2",
+          to: "100000657574837,100001307331738"
         }
         Facebook.ui(params, callback);
       }
@@ -90,6 +91,15 @@
             logDump("", "response", response);
         }
       }
+
+      private function toggleFrictionless():void {
+        Facebook.enableFrictionlessRequests();
+        showFrictionlessRequestsStatus();
+      }
+
+      private function showFrictionlessRequestsStatus():void {
+        log("FrictionlessRequests: " + Facebook.isFrictionlessRequestsEnabled);
+      }
     ]]></fx:Script>
 
     <s:layout>
@@ -101,18 +111,19 @@
       </s:layout>
 
       <s:HGroup width="80%" verticalAlign="middle">
-        <s:Button label="tok" click="log(Facebook.accessToken)"/>
-        <s:Button label="exp" click="log(String(Facebook.expirationDate))"/>
+        <s:Button label="st" click="log(Facebook.accessToken); log(String(Facebook.expirationDate))"/>
         <s:Button label="in" click="Facebook.login()"/>
         <s:Button label="out" click="Facebook.logout()"/>
         <s:Button label="ext" click="Facebook.extendAccessToken()"/>
-        <s:Button label="n?" click="log(String(Facebook.shouldExtendAccessToken))"/>
+        <s:Button label="e?" click="log(String(Facebook.shouldExtendAccessToken))"/>
+        <s:Button label="!f" click="toggleFrictionless()"/>
       </s:HGroup>
       <s:HGroup width="80%" verticalAlign="middle">
         <s:Button label="feed" click="feed()"/>
         <s:Button label="oauth" click="oauth()"/>
         <s:Button label="req" click="requests()"/>
         <s:Button label="/me" click="me()"/>
+        <s:Button label="v?" click="log(String(Facebook.isSessionValid))"/>
       </s:HGroup>
 
       <s:TextArea id="console" fontSize="14" height="100%" width="80%" editable="false"/>

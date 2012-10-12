@@ -63,19 +63,15 @@
         <!--<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>-->
         <!--<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>-->
         <!--<uses-feature android:required="true" android:name="android.hardware.touchscreen.multitouch"/>-->
-        <!--<application android:enabled="true">
-          <activity android:excludeFromRecents="false">
-            <intent-filter>
-              <action android:name="android.intent.action.MAIN"/>
-              <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-          </activity>
-        </application>-->
+        <application android:enabled="true">
+          <activity android:name="com.jesusla.ane.CustomActivity"/>
+        </application>
       </manifest>
     ]]></manifestAdditions>
   </android>
 
   <extensions>
     <extensionID>@EXT_ID@</extensionID>
+    <extensionID>com.jesusla.ane</extensionID>
   </extensions>
 </application>
