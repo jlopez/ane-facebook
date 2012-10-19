@@ -56,6 +56,7 @@ public class FacebookLib extends Context {
     facebook = new Facebook(applicationId);
     asyncRunner = new AsyncFacebookRunner(facebook);
     readToken();
+    facebook.publishInstall(getActivity());
   }
 
   public String getApplicationId() {

@@ -120,6 +120,8 @@ FN_END
     }
   }
 
+  [[FBSession activeSession] isOpen];
+  [FBSettings publishInstall:applicationId];
   return YES;
 }
 

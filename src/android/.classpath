@@ -4,8 +4,8 @@
 	<classpathentry kind="con" path="com.android.ide.eclipse.adt.LIBRARIES"/>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="src" path="gen"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/com.jesusla.ane"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/facebook"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Flash Runtime Extensions 4.6"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/com.jesusla.ane"/>
 	<classpathentry kind="output" path="bin/classes"/>
 </classpath>
