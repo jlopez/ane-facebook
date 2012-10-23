@@ -189,6 +189,8 @@ package com.jesusla.facebook {
     private function context_statusEventHandler(event:StatusEvent):void {
       if (event.level == "TICKET")
         context.call("claimTicket", event.code);
+      else if (event.level == "RELEASE")
+        delete _objectPool[int(event.code)];
       else if (event.level == "SESSION")
         dispatchEvent(new SessionEvent(event.code));
     }
