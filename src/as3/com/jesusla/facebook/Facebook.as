@@ -164,7 +164,6 @@ package com.jesusla.facebook {
           try {
             _instance = new NativeFacebook(_ctx);
           } catch (e:ArgumentError) {
-            throw e;
           }
         }
         if (_instance == null)
