@@ -98,7 +98,8 @@ package com.jesusla.facebook {
     }
 
     public function dialogDidNotComplete(url:String):void {
-      invokeDialogCallback(responseFromUrl(url));
+      var response:Object = { error: responseFromUrl(url) };
+      invokeDialogCallback(response);
     }
 
     public function dialogDidFailWithError(error:Object):void {
