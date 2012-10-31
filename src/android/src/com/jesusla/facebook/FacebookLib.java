@@ -76,8 +76,10 @@ public class FacebookLib extends Context {
 
   public void login(String[] permissions) {
     startActivity(new CustomActivityListener() {
-      @Override public void onCreate(Activity activity, Bundle savedInstanceState) {
-        facebook.authorize(activity, loginListener);
+      @Override public void onCreate(final Activity activity, Bundle savedInstanceState) {
+        facebook.authorize(activity, new LoginDialogListener() {
+          @Override protected void onCompletion() { activity.finish(); }
+        });
       }
 
       @Override
@@ -135,14 +137,19 @@ public class FacebookLib extends Context {
     return uuid;
   }
 
-  private final DialogListener loginListener = new DialogListener() {
-    @Override public void onFacebookError(FacebookError e) { dispatchStatusEventAsync("LOGIN_FAILED", "SESSION"); }
-    @Override public void onError(DialogError e) { dispatchStatusEventAsync("LOGIN_FAILED", "SESSION"); }
-    @Override public void onCancel() { dispatchStatusEventAsync("LOGIN_CANCELED", "SESSION"); }
-    @Override public void onComplete(Bundle values) {
+  private abstract class LoginDialogListener implements DialogListener {
+    @Override public final void onFacebookError(FacebookError e) { notify("LOGIN_FAILED", "SESSION"); }
+    @Override public final void onError(DialogError e) { notify("LOGIN_FAILED", "SESSION"); }
+    @Override public final void onCancel() { notify("LOGIN_CANCELED", "SESSION"); }
+    @Override public final void onComplete(Bundle values) {
       updateToken();
-      dispatchStatusEventAsync("LOGIN", "SESSION");
+      notify("LOGIN", "SESSION");
     }
+    private final void notify(String code, String level) {
+      dispatchStatusEventAsync(code, level);
+      onCompletion();
+    }
+    protected abstract void onCompletion();
   };
 
   private final RequestListener logoutListener = new RequestListener() {
