@@ -29,7 +29,6 @@
         <key>UIApplicationExitsOnSuspend</key><false/>
         <key>UIPrerenderedIcon</key><true/>
         <key>ANEDebug</key><true/>
-        <key>FBAppID</key><string>@FACEBOOK_APP_ID@</string>
         <key>FacebookAppID</key><string>@FACEBOOK_APP_ID@</string>
         <key>FBPermissions</key><string/>
         <key>CFBundleURLTypes</key>
@@ -49,6 +48,8 @@
         <uses-permission android:name="android.permission.INTERNET"/>
         <application android:enabled="true" @ANDROID_DEBUGGABLE@>
           <activity android:name="com.jesusla.ane.CustomActivity"/>
+          <meta-data android:name="ANEDebug" android:value="true"/>
+          <meta-data android:name="FacebookAppID" android:value="\ @FACEBOOK_APP_ID@"/>
         </application>
       </manifest>
     ]]></manifestAdditions>

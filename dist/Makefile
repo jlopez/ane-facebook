@@ -13,7 +13,6 @@ WIKI_GIT_URL = git@github.com:jlopez/ane-facebook.wiki.git
 SRCDIR = $(ROOT)/src/test
 SRC_MAIN = $(SRCDIR)/test.mxml
 APP_XML_IN = $(SRCDIR)/app.xml.in
-ANDROID_PROPERTIES_IN = $(SRCDIR)/android.properties.in
 ANES = $(ANE) ../lib/ane/dist/nativelibrary.ane
 OTHER_RESOURCES =
 

@@ -4,9 +4,13 @@ Download the latest binary from [here](ane-facebook/wiki/facebook.ane)
 
 Usage
 -----
-Set FBAppID in Info.plist to the FB application ID:
+Set FacebookAppID in the app.xml additions to the FB application ID:
 
-        <key>FBAppID</key><string>@FACEBOOK_APP_ID@</string>
+        // InfoAdditions
+        <key>FacebookAppID</key><string>@FACEBOOK_APP_ID@</string>
+
+        // manifestAdditions
+        <meta-data android:name="FacebookAppID" android:value="@FACEBOOK_APP_ID@"/>
 
 Add a CFBundleURLTypes section to Info.plist:
 
@@ -15,11 +19,6 @@ Add a CFBundleURLTypes section to Info.plist:
           <key>CFBundleURLSchemes</key>
           <array><string>fb@FACEBOOK_APP_ID@</string></array>
         </dict></array>
-
-Optionally, set a FBPermissions entry containing a comma separated
-  list of permissions (may be empty). This will enable auto-login:
-
-        <key>FBPermissions</key><string>email,stream_post</string>
 
 Call API methods on the AS3 Facebook class:
 

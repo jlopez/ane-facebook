@@ -12,8 +12,7 @@ static NSString *const FBAccessTokenKey = @"FBAccessTokenKey";
 static NSString *const FBExpirationDateKey = @"FBExpirationDateKey";
 static NSString *const FBAutoLoginPermissionsKey = @"FBAutoLoginPermissionsKey";
 
-static NSString *const FBAppIdKey = @"FBAppID";
-static NSString *const FBPermissionsKey = @"FBPermissions";
+static NSString *const FBAppIdKey = @"FacebookAppID";
 
 static NSString *const FBLoginEvent = @"LOGIN";
 static NSString *const FBLoginCanceledEvent = @"LOGIN_CANCELED";
@@ -98,7 +97,7 @@ FN_END
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
   NSBundle *bundle = [NSBundle mainBundle];
   applicationId = [bundle objectForInfoDictionaryKey:FBAppIdKey];
-  NSAssert(applicationId, @"Missing FBAppID");
+  NSAssert1(applicationId, @"Missing %@", FBAppIdKey);
   facebook = [[Facebook alloc] initWithAppId:applicationId andDelegate:self];
 
   NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -107,17 +106,6 @@ FN_END
   if (accessToken && expirationDate) {
     facebook.accessToken = accessToken;
     facebook.expirationDate = expirationDate;
-  }
-
-  NSString *loginPermissions = [bundle objectForInfoDictionaryKey:FBPermissionsKey];
-  if (loginPermissions) {
-    NSString *oldPermissions = [defaults objectForKey:FBAutoLoginPermissionsKey];
-    if (![facebook isSessionValid] || ![oldPermissions isEqualToString:loginPermissions]) {
-      NSArray *permArray = [loginPermissions length] ? [loginPermissions componentsSeparatedByString:@","] : nil;
-      [self loginWithPermissions:permArray];
-      [defaults setObject:loginPermissions forKey:FBAutoLoginPermissionsKey];
-      [defaults synchronize];
-    }
   }
 
   [[FBSession activeSession] isOpen];
