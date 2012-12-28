@@ -164,8 +164,8 @@ public class FacebookLib extends Context {
   };
 
   private final ServiceListener tokenListener = new ServiceListener() {
-    @Override public void onFacebookError(FacebookError e) { Extension.fail(e, "Facebook.extendAccessToken()"); }
-    @Override public void onError(Error e) { Extension.fail(e, "Facebook.extendAccessToken()"); }
+    @Override public void onFacebookError(FacebookError e) { Extension.warn(e, "Facebook.extendAccessToken()"); }
+    @Override public void onError(Error e) { Extension.warn(e, "Facebook.extendAccessToken()"); }
     @Override public void onComplete(Bundle values) {
       updateToken();
       dispatchStatusEventAsync("ACCESS_TOKEN_EXTENDED", "SESSION");
