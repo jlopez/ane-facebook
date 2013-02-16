@@ -1,12 +1,12 @@
 [submodule "dist/mk"]
 	path = dist/mk
-	url = git@github.com:jlopez/air-mk.git
+	url = git@github.com:MichaelRando/air-mk.git
 [submodule "lib/facebook-android-sdk"]
 	path = lib/facebook-android-sdk
-	url = git@github.com:jlopez/facebook-android-sdk
+	url = git@github.com:MichaelRando/facebook-android-sdk
 [submodule "lib/facebook-ios-sdk"]
 	path = lib/facebook-ios-sdk
 	url = git@github.com:facebook/facebook-ios-sdk
 [submodule "lib/ane"]
 	path = lib/ane
-	url = git@github.com:mindjolt/ane-helper.git
+	url = git@github.com:MichaelRando/ane-helper.git
