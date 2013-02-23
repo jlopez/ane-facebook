@@ -89,6 +89,32 @@ public class FacebookLib extends Context {
     R.id.picker_subtitle = getResourceId("id.picker_subtitle"); 
     R.id.search_box = getResourceId("id.search_box"); 
     R.id.small = getResourceId("id.small"); 
+	R.string.com_facebook_dialogloginactivity_ok_button = getResourceId("string.com_facebook_dialogloginactivity_ok_button");
+    R.string.com_facebook_loginview_log_out_button = getResourceId("string.com_facebook_loginview_log_out_button");
+    R.string.com_facebook_loginview_log_in_button = getResourceId("string.com_facebook_loginview_log_in_button");
+    R.string.com_facebook_loginview_logged_in_as = getResourceId("string.com_facebook_loginview_logged_in_as");
+    R.string.com_facebook_loginview_logged_in_using_facebook = getResourceId("string.com_facebook_loginview_logged_in_using_facebook");
+    R.string.com_facebook_loginview_log_out_action = getResourceId("string.com_facebook_loginview_log_out_action");
+    R.string.com_facebook_loginview_cancel_action = getResourceId("string.com_facebook_loginview_cancel_action");
+    R.string.com_facebook_logo_content_description = getResourceId("string.com_facebook_logo_content_description");
+    R.string.com_facebook_usersettingsfragment_log_in_button = getResourceId("string.com_facebook_usersettingsfragment_log_in_button");
+    R.string.com_facebook_usersettingsfragment_logged_in = getResourceId("string.com_facebook_usersettingsfragment_logged_in");
+    R.string.com_facebook_usersettingsfragment_not_logged_in = getResourceId("string.com_facebook_usersettingsfragment_not_logged_in");
+    R.string.com_facebook_placepicker_subtitle_format = getResourceId("string.com_facebook_placepicker_subtitle_format");
+    R.string.com_facebook_placepicker_subtitle_catetory_only_format = getResourceId("string.com_facebook_placepicker_subtitle_catetory_only_format");
+    R.string.com_facebook_placepicker_subtitle_were_here_only_format = getResourceId("string.com_facebook_placepicker_subtitle_were_here_only_format");
+    R.string.com_facebook_picker_done_button_text = getResourceId("string.com_facebook_picker_done_button_text");
+    R.string.com_facebook_choose_friends = getResourceId("string.com_facebook_choose_friends");
+    R.string.com_facebook_nearby = getResourceId("string.com_facebook_nearby");
+    R.string.com_facebook_loading = getResourceId("string.com_facebook_loading");
+    R.string.com_facebook_internet_permission_error_title = getResourceId("string.com_facebook_internet_permission_error_title");
+    R.string.com_facebook_internet_permission_error_message = getResourceId("string.com_facebook_internet_permission_error_message");
+    R.string.com_facebook_requesterror_web_login = getResourceId("string.com_facebook_requesterror_web_login");
+    R.string.com_facebook_requesterror_relogin = getResourceId("string.com_facebook_requesterror_relogin");
+    R.string.com_facebook_requesterror_password_changed = getResourceId("string.com_facebook_requesterror_password_changed");
+    R.string.com_facebook_requesterror_reconnect = getResourceId("string.com_facebook_requesterror_reconnect");
+    R.string.com_facebook_requesterror_permissions = getResourceId("string.com_facebook_requesterror_permissions");
+
   }
   
   @Override
@@ -109,7 +135,7 @@ public class FacebookLib extends Context {
 		}
 	  }
     };
-    
+
 	// the sdk ids get remapped when ADT process Android ANEs
 	patchFacebookResourceIdsAtRuntime();
 	
@@ -233,6 +259,8 @@ public class FacebookLib extends Context {
   }
 
   public void showDialog(String action, Bundle params) {
+      Session session = Session.getActiveSession();
+	  Assert.assertEquals(session.isOpened(), true);
       WebDialog.OnCompleteListener onComplete = new WebDialog.OnCompleteListener() {
       @Override
       public void onComplete(Bundle values, FacebookException error) {
@@ -276,12 +304,19 @@ public class FacebookLib extends Context {
     Request.Callback callback = new Request.Callback() {
       @Override
       public void onCompleted(Response response) {
-        try {
-          JSONObject data = new JSONObject(response.getGraphObject().asMap());
-          asyncFlashCall(null, null, "requestDidLoad", uuid, data);
-        } catch (NullPointerException e) {
-          Extension.fail(e, "Parsing '%s'", response.getGraphObject().asMap());
-        }
+		if (response.getGraphObject() != null) {
+		  try {
+            JSONObject data = new JSONObject(response.getGraphObject().asMap());
+            asyncFlashCall(null, null, "requestDidLoad", uuid, data);
+          } 
+		  catch (NullPointerException e) {
+            Extension.debug("Extension.fail Parsing '%s'", response.getGraphObject().asMap());
+		    asyncFlashCall(null, null, "requestDidFailWithError", uuid, e);
+          }
+		}
+		else {
+		  asyncFlashCall(null, null, "requestDidFailWithError", uuid, response.getError());
+		}
       }
     };
     HttpMethod httpMethod = HttpMethod.GET;
@@ -297,15 +332,18 @@ public class FacebookLib extends Context {
   }
 
   private String encodeBundle(Bundle bundle) {
-    String url = "fbconnect://success?";
-    for (String key : bundle.keySet()) {
-      String val = bundle.getString(key);
-      key = URLEncoder.encode(key);
-      val = URLEncoder.encode(val);
-      if (!url.endsWith("?"))
-        url += '&';
-      url = url + key + '=' + val;
-    }
+    String url = "fbconnect://success";
+	if (bundle != null ) {
+	  url += "?";
+	  for (String key : bundle.keySet()) {
+	    String val = bundle.getString(key);
+	    key = URLEncoder.encode(key);
+	    val = URLEncoder.encode(val);
+	    if (!url.endsWith("?"))
+  		  url += '&';
+	    url = url + key + '=' + val;
+	  }
+	}
     return url;
   }
 }
