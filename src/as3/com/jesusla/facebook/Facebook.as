@@ -52,48 +52,16 @@ package com.jesusla.facebook {
       return instance.expirationDate;
     }
 
-    public static function get isFrictionlessRequestsEnabled():Boolean {
-      return instance.isFrictionlessRequestsEnabled;
-    }
-
-    public static function login(permissions:Array = null):void {
-      instance.login(permissions);
+    public static function login():void {
+      instance.login();
     }
 
     public static function logout():void {
       instance.logout();
     }
 
-    public static function extendAccessToken():void {
-      instance.extendAccessToken();
-    }
-
-    public static function extendAccessTokenIfNeeded():void {
-      instance.extendAccessTokenIfNeeded();
-    }
-
-    public static function get shouldExtendAccessToken():Boolean {
-      return instance.shouldExtendAccessToken;
-    }
-
     public static function get isSessionValid():Boolean {
       return instance.isSessionValid;
-    }
-
-    public static function enableFrictionlessRequests():void {
-      instance.enableFrictionlessRequests();
-    }
-
-    public static function reloadFrictionlessRecipientCache():void {
-      instance.reloadFrictionlessRecipientCache();
-    }
-
-    public static function isFrictionlessEnabledForRecipient(fbid:String):Boolean {
-      return instance.isFrictionlessEnabledForRecipient(fbid);
-    }
-
-    public static function isFrictionlessEnabledForRecipients(fbids:Array):Boolean {
-      return isFrictionlessEnabledForRecipients(fbids);
     }
 
     public static function ui(params:Object, cb:Function = null):void {
@@ -132,17 +100,9 @@ package com.jesusla.facebook {
     internal function get applicationId():String { return pureVirtual(); }
     internal function get accessToken():String { return pureVirtual(); }
     internal function get expirationDate():Date { return pureVirtual(); }
-    internal function get isFrictionlessRequestsEnabled():Boolean { return pureVirtual(); }
-    internal function login(permissions:Array = null):void { pureVirtual(); }
+    internal function login():void { pureVirtual(); }
     internal function logout():void { pureVirtual(); }
-    internal function extendAccessToken():void { pureVirtual(); }
-    internal function extendAccessTokenIfNeeded():void { pureVirtual(); }
-    internal function get shouldExtendAccessToken():Boolean { return pureVirtual(); }
     internal function get isSessionValid():Boolean { return pureVirtual(); }
-    internal function enableFrictionlessRequests():void { pureVirtual(); }
-    internal function reloadFrictionlessRecipientCache():void { pureVirtual(); }
-    internal function isFrictionlessEnabledForRecipient(fbid:String):Boolean { return pureVirtual(); }
-    internal function isFrictionlessEnabledForRecipients(fbids:Array):Boolean { return pureVirtual(); }
     internal function ui(params:Object, cb:Function = null):void { pureVirtual(); }
     internal function api(path:String, cb:Function, params:Object, method:String):void { pureVirtual(); }
 

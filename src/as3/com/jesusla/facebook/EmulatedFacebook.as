@@ -48,15 +48,11 @@ package com.jesusla.facebook {
       return _session ? _session.expireDate : null;
     }
 
-    override internal function get isFrictionlessRequestsEnabled():Boolean {
-      return false;
-    }
-
-    override internal function login(permissions:Array = null):void {
+    override internal function login():void {
       var webView:StageWebView = new StageWebView();
       webView.stage = _stage;
       webView.viewPort = new Rectangle(0, 0, _stage.stageWidth, _stage.stageHeight);
-      FacebookMobile.login(onFacebookMobileLogin, _stage, permissions, webView);
+      FacebookMobile.login(onFacebookMobileLogin, _stage, null, webView);
 
       function onFacebookMobileLogin(success:Object, fail:Object):void {
         var session:FacebookSession = success as FacebookSession;
@@ -81,51 +77,9 @@ package com.jesusla.facebook {
       }
     }
 
-    override internal function extendAccessToken():void {
-      if (_isExtendingAccessToken)
-        return;
-      _isExtendingAccessToken = true;
-      FacebookMobile.callRestAPI("auth.extendSSOAccessToken", onAccessTokenExtended);
-
-      // This does not work with FacebookMobile.
-      // Returns "(10): The access token was not obtained using single sign-on"
-      function onAccessTokenExtended(response:Object, error:Object):void {
-        _isExtendingAccessToken = false;
-        if (!response || !response.access_token || response.expires_at == null)
-          return;
-        _session.accessToken = response.access_token;
-        _session.expireDate = new Date(response.expires_at || int.MAX_VALUE);
-        _lastAccessTokenUpdate = new Date();
-        dispatchEvent(new SessionEvent(SessionEvent.ACCESS_TOKEN_EXTENDED));
-      }
-    }
-
-    override internal function extendAccessTokenIfNeeded():void {
-      if (shouldExtendAccessToken)
-        extendAccessToken();
-    }
-
-    override internal function get shouldExtendAccessToken():Boolean {
-      return isSessionValid && _lastAccessTokenUpdate.time + 86400000 < new Date().time;
-    }
-
     override internal function get isSessionValid():Boolean {
       return accessToken != null && expirationDate != null &&
         expirationDate.time > new Date().time;
-    }
-
-    override internal function enableFrictionlessRequests():void {
-    }
-
-    override internal function reloadFrictionlessRecipientCache():void {
-    }
-
-    override internal function isFrictionlessEnabledForRecipient(fbid:String):Boolean {
-      return false;
-    }
-
-    override internal function isFrictionlessEnabledForRecipients(fbids:Array):Boolean {
-      return false;
     }
 
     override internal function ui(params:Object, cb:Function = null):void {

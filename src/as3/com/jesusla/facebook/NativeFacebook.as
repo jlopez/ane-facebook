@@ -37,48 +37,16 @@ package com.jesusla.facebook {
       return context.call("expirationDate") as Date;
     }
 
-    override internal function get isFrictionlessRequestsEnabled():Boolean {
-      return context.call("isFrictionlessRequestsEnabled");
-    }
-
-    override internal function login(permissions:Array = null):void {
-      context.call("login", permissions);
+    override internal function login():void {
+      context.call("login");
     }
 
     override internal function logout():void {
       context.call("logout");
     }
 
-    override internal function extendAccessToken():void {
-      context.call("extendAccessToken");
-    }
-
-    override internal function extendAccessTokenIfNeeded():void {
-      context.call("extendAccessTokenIfNeeded");
-    }
-
-    override internal function get shouldExtendAccessToken():Boolean {
-      return context.call("shouldExtendAccessToken");
-    }
-
     override internal function get isSessionValid():Boolean {
       return context.call("isSessionValid");
-    }
-
-    override internal function enableFrictionlessRequests():void {
-      context.call("enableFrictionlessRequests");
-    }
-
-    override internal function reloadFrictionlessRecipientCache():void {
-      context.call("reloadFrictionlessRecipientCache");
-    }
-
-    override internal function isFrictionlessEnabledForRecipient(fbid:String):Boolean {
-      return context.call("isFrictionlessEnabledForRecipient", fbid);
-    }
-
-    override internal function isFrictionlessEnabledForRecipients(fbids:Array):Boolean {
-      return context.call("isFrictionlessEnabledForRecipients", fbids);
     }
 
     override internal function ui(params:Object, cb:Function = null):void {

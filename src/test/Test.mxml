@@ -18,7 +18,6 @@
         Facebook.addEventListener(SessionEvent.ACCESS_TOKEN_EXTENDED, facebook_sessionEvent);
         Facebook.addEventListener(SessionEvent.SESSION_INVALIDATED, facebook_sessionEvent);
         Facebook.init("435432429830213", stage);
-        showFrictionlessRequestsStatus();
       }
 
       private function facebook_sessionEvent(event:SessionEvent):void {
@@ -92,14 +91,6 @@
         }
       }
 
-      private function toggleFrictionless():void {
-        Facebook.enableFrictionlessRequests();
-        showFrictionlessRequestsStatus();
-      }
-
-      private function showFrictionlessRequestsStatus():void {
-        log("FrictionlessRequests: " + Facebook.isFrictionlessRequestsEnabled);
-      }
     ]]></fx:Script>
 
     <s:layout>
@@ -114,9 +105,6 @@
         <s:Button label="at" click="log(Facebook.accessToken); log(String(Facebook.expirationDate))"/>
         <s:Button label="in" click="Facebook.login()"/>
         <s:Button label="out" click="Facebook.logout()"/>
-        <s:Button label="ext" click="Facebook.extendAccessToken()"/>
-        <s:Button label="e?" click="log(String(Facebook.shouldExtendAccessToken))"/>
-        <s:Button label="!f" click="toggleFrictionless()"/>
       </s:HGroup>
       <s:HGroup width="80%" verticalAlign="middle">
         <s:Button label="feed" click="feed()"/>

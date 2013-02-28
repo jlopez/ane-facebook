@@ -5,41 +5,25 @@
 //  Created by Jesus Lopez on 05/07/2012
 //  Copyright (c) 2012 JLA. All rights reserved.
 //
-#import "FBConnect.h"
+
+#import "Facebook.h"
 #import "NativeLibrary.h"
 
+static NSString *const FBAppIdKey = @"FacebookAppID";
 static NSString *const FBAccessTokenKey = @"FBAccessTokenKey";
 static NSString *const FBExpirationDateKey = @"FBExpirationDateKey";
-static NSString *const FBAutoLoginPermissionsKey = @"FBAutoLoginPermissionsKey";
 
-static NSString *const FBAppIdKey = @"FacebookAppID";
-
+static NSString *const FBLoginFailedEvent = @"LOGIN_FAILED";
 static NSString *const FBLoginEvent = @"LOGIN";
 static NSString *const FBLoginCanceledEvent = @"LOGIN_CANCELED";
-static NSString *const FBLoginFailedEvent = @"LOGIN_FAILED";
+
 static NSString *const FBLogoutEvent = @"LOGOUT";
-static NSString *const FBAccessTokenExtendedEvent = @"ACCESS_TOKEN_EXTENDED";
-static NSString *const FBSessionInvalidatedEvent = @"SESSION_INVALIDATED";
 
-
-@interface FacebookLib : NativeLibrary<FBSessionDelegate, FBRequestDelegate, FBDialogDelegate> {
+@interface FacebookLib : NativeLibrary<FBDialogDelegate> {
 @private
   Facebook *facebook;
-  NSMutableDictionary *pendingRequests;
 }
-
-@property (nonatomic, readonly) NSString *applicationId;
-
-@end
-
-@interface JLRequestWrapper : NSObject<FBRequestDelegate> {
-@private
-}
-
-@property (nonatomic, readonly) NSString *uuid;
-@property (nonatomic, assign) FBRequest *request;
-@property (nonatomic, assign) FacebookLib *lib;
-
+  @property (nonatomic, readonly) NSString *applicationId;
 @end
 
 @implementation FacebookLib
@@ -48,186 +32,198 @@ FN_BEGIN(FacebookLib)
   FN(applicationId, applicationId)
   FN(accessToken, accessToken)
   FN(expirationDate, expirationDate)
-  FN(isFrictionlessRequestsEnabled, isFrictionlessRequestsEnabled)
-  FN(login, loginWithPermissions:)
+  FN(login, login)
   FN(logout, logout)
-  FN(extendAccessToken, extendAccessToken)
-  FN(extendAccessTokenIfNeeded, extendAccessTokenIfNeeded)
-  FN(shouldExtendAccessToken, shouldExtendAccessToken)
   FN(isSessionValid, isSessionValid)
-  FN(enableFrictionlessRequests, enableFrictionlessRequests)
-  FN(reloadFrictionlessRecipientCache, reloadFrictionlessRecipientCache)
-  FN(isFrictionlessEnabledForRecipient, isFrictionlessEnabledForRecipient:)
-  FN(isFrictionlessEnabledForRecipients, isFrictionlessEnabledForRecipients:)
   FN(showDialog, dialog:params:)
   FN(graph, requestWithGraphPath:params:httpMethod:)
 FN_END
 
 @synthesize applicationId;
 
+
 - (id)init {
-  if (self = [super init]) {
-    pendingRequests = [NSMutableDictionary new];
-  }
+  self = [super init];
   return self;
 }
 
 - (void)dealloc {
-  [pendingRequests release];
   [facebook release];
   [super dealloc];
 }
 
-- (void)updateToken:(NSString *)accessToken expiresAt:(NSDate *)expirationDate {
-  NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-  [defaults setObject:accessToken forKey:FBAccessTokenKey];
-  [defaults setObject:expirationDate forKey:FBExpirationDateKey];
-  [defaults synchronize];
-}
-
-- (void)removeToken {
-  NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-  if ([defaults objectForKey:FBAccessTokenKey]) {
-    [defaults removeObjectForKey:FBAccessTokenKey];
-    [defaults removeObjectForKey:FBExpirationDateKey];
-    [defaults synchronize];
-  }
-}
+// UNUSED
+// – application:willFinishLaunchingWithOptions:
+// – applicationWillResignActive:
+// – applicationDidEnterBackground:
+// – applicationWillEnterForeground:
+// – applicationDidFinishLaunching:
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-  NSBundle *bundle = [NSBundle mainBundle];
-  applicationId = [bundle objectForInfoDictionaryKey:FBAppIdKey];
-  NSAssert1(applicationId, @"Missing %@", FBAppIdKey);
-  facebook = [[Facebook alloc] initWithAppId:applicationId andDelegate:self];
+  	NSBundle *bundle = [NSBundle mainBundle];
+  	applicationId = [bundle objectForInfoDictionaryKey:FBAppIdKey];
+  	NSAssert1(applicationId, @"Missing %@", FBAppIdKey);
 
-  NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-  id accessToken = [defaults objectForKey:FBAccessTokenKey];
-  id expirationDate = [defaults objectForKey:FBExpirationDateKey];
-  if (accessToken && expirationDate) {
-    facebook.accessToken = accessToken;
-    facebook.expirationDate = expirationDate;
-  }
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    id accessToken = [defaults objectForKey:FBAccessTokenKey];
+    id expirationDate = [defaults objectForKey:FBExpirationDateKey];
 
-  [[FBSession activeSession] isOpen];
-  [FBSettings publishInstall:applicationId];
-  return YES;
+    if (accessToken && expirationDate) {
+      FBAccessTokenData* accessTokenData = [FBAccessTokenData createTokenFromString:accessToken 
+                                                          permissions:nil 
+                                                          expirationDate:expirationDate
+                                                          loginType:FBSessionLoginTypeFacebookApplication
+                                                          refreshDate:nil];
+      // add the old token to the cache
+      [FBSessionTokenCachingStrategy.defaultInstance cacheFBAccessTokenData:accessTokenData];
+      [defaults removeObjectForKey:FBAccessTokenKey];
+      [defaults removeObjectForKey:FBExpirationDateKey];
+      [defaults synchronize];
+    }
+
+    // We open the session up front, as long as we have a cached token, otherwise rely on the user 
+    // to login explicitly 
+    [FBSession openActiveSessionWithAllowLoginUI:NO];   
+    [FBSettings publishInstall:applicationId];
+
+    return YES;
 }
-
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation {
-  return [facebook handleOpenURL:url];
-}
-
+// FBSample logic
+// It is possible for the user to switch back to your application, from the native Facebook application, 
+// when the user is part-way through a login; You can check for the FBSessionStateCreatedOpenening
+// state in applicationDidBecomeActive, to identify this situation and close the session; a more sophisticated
+// application may choose to notify the user that they switched away from the Facebook application without
+// completely logging in
 - (void)applicationDidBecomeActive:(UIApplication *)application {
-  [facebook extendAccessTokenIfNeeded];
+    /*
+     Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+     */
+    
+    // FBSample logic
+    // We need to properly handle activation of the application with regards to SSO
+    //  (e.g., returning from iOS 6.0 authorization dialog or from fast app switching).
+    [FBSession.activeSession handleDidBecomeActive];
+}
+// FBSample logic
+// In the login workflow, the Facebook native application, or Safari will transition back to
+// this applicaiton via a url following the scheme fb[app id]://; the call to handleOpenURL
+// below captures the token, in the case of success, on behalf of the FBSession object
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+  sourceApplication:(NSString *)sourceApplication
+         annotation:(id)annotation {
+    return [FBSession.activeSession handleOpenURL:url];
 }
 
-- (void)fbDidLogin {
-  [self updateToken:facebook.accessToken expiresAt:facebook.expirationDate];
-  [self sendEventWithCode:FBLoginEvent level:@"SESSION"];
-}
-
-- (void)fbDidNotLogin:(BOOL)canceled {
-  if (canceled)
-    [self sendEventWithCode:FBLoginCanceledEvent level:@"SESSION"];
-  else
-    [self sendEventWithCode:FBLoginFailedEvent level:@"SESSION"];
-}
-
-- (void)fbDidExtendToken:(NSString *)accessToken expiresAt:(NSDate *)expiresAt {
-  [self updateToken:accessToken expiresAt:expiresAt];
-  [self sendEventWithCode:FBAccessTokenExtendedEvent level:@"SESSION"];
-}
-
-- (void)fbDidLogout {
-  [self removeToken];
-  [self sendEventWithCode:FBLogoutEvent level:@"SESSION"];
-}
-
-- (void)fbSessionInvalidated {
-  [self removeToken];
-  [self sendEventWithCode:FBSessionInvalidatedEvent level:@"SESSION"];
+// FBSample logic
+// It is important to close any FBSession object that is no longer useful
+- (void)applicationWillTerminate:(UIApplication *)application {
+    // Close the session before quitting
+    // this is a good idea because things may be hanging off the session, that need 
+    // releasing (completion block, etc.) and other components in the app may be awaiting
+    // close notification in order to do cleanup
+  [FBSession.activeSession close];
 }
 
 - (NSString *)accessToken {
-  return facebook.accessToken;
+  return FBSession.activeSession.accessTokenData.accessToken;
 }
+
 
 - (NSDate *)expirationDate {
-  return facebook.expirationDate;
+  return FBSession.activeSession.accessTokenData.expirationDate;
 }
 
-- (void)loginWithPermissions:(NSArray *)permissions {
-  [facebook authorize:permissions];
+- (void)login {
+  if (FBSession.activeSession.isOpen) {
+    [self sendEventWithCode:FBLoginEvent level:@"SESSION"];
+    return;
+  }
+
+  void (^sessionStateChanged)( FBSession *, FBSessionState,NSError *) = 
+      ^( FBSession *session,
+         FBSessionState state,
+         NSError *error) {
+    // if login fails for any reason, we send a FBLoginFailedEvent
+    if (error) {
+      ANELog(@"ERROR");
+      [self sendEventWithCode:FBLoginFailedEvent level:@"SESSION"];
+    } 
+    switch (state) {
+    case FBSessionStateOpenTokenExtended:
+    case FBSessionStateOpen: {
+      ANELog(@"FBSessionStateOpen");
+        [self sendEventWithCode:FBLoginEvent level:@"SESSION"];
+        break;
+      }
+    case FBSessionStateClosed: {
+      ANELog(@"FBSessionStateClosed");
+        break; 
+      }
+    case FBSessionStateClosedLoginFailed: {
+      ANELog(@"FBSessionStateClosedLoginFailed");
+        [self sendEventWithCode:FBLoginFailedEvent level:@"SESSION"];
+        break;
+      }
+    default: {
+        ANELog(@"%s: %@", __PRETTY_FUNCTION__, @"Default case hit");
+        break;
+      }
+    }
+  };
+
+  [FBSession openActiveSessionWithReadPermissions:nil
+             allowLoginUI:YES
+             completionHandler:sessionStateChanged];
 }
 
 - (void)logout {
-  [facebook logout];
-}
-
-- (BOOL)isFrictionlessRequestsEnabled {
-  return [facebook isFrictionlessRequestsEnabled];
-}
-
-- (void)extendAccessToken {
-  [facebook extendAccessToken];
-}
-
-- (void)extendAccessTokenIfNeeded {
-  [facebook extendAccessTokenIfNeeded];
-}
-
-- (BOOL)shouldExtendAccessToken {
-  return [facebook shouldExtendAccessToken];
+  ANELog(@"%s: LOGOUT", __PRETTY_FUNCTION__);
+  [FBSession.activeSession closeAndClearTokenInformation];  
+  [self sendEventWithCode:FBLogoutEvent level:@"SESSION"];
 }
 
 - (BOOL)isSessionValid {
-  return [facebook isSessionValid];
+  return FBSession.activeSession.isOpen;
 }
 
-- (void)enableFrictionlessRequests {
-  [facebook enableFrictionlessRequests];
-}
-
-- (void)reloadFrictionlessRecipientCache {
-  [facebook reloadFrictionlessRecipientCache];
-}
-
-- (BOOL)isFrictionlessEnabledForRecipient:(NSString *)fbid {
-  return [facebook isFrictionlessEnabledForRecipient:fbid];
-}
-
-- (BOOL)isFrictionlessEnabledForRecipients:(NSArray *)fbids {
-  return [facebook isFrictionlessEnabledForRecipients:fbids];
-}
-
-NSMutableDictionary *sanitizeParams(NSMutableDictionary *params) {
-  if (!params)
-    return [NSMutableDictionary dictionary];
-  for (NSString *key in [params allKeys]) {
-    id val = [params objectForKey:key];
-    if (![val isKindOfClass:[NSString class]])
-      [params setObject:[val description] forKey:key];
-  }
-  return params;
-}
-
-- (void)requestWithMethodName:(NSString *)methodName params:(NSMutableDictionary *)params httpMethod:(NSString *)httpMethod {
-  params = sanitizeParams(params);
-  [facebook requestWithMethodName:methodName andParams:params andHttpMethod:httpMethod andDelegate:self];
-}
 
 - (NSString *)requestWithGraphPath:(NSString *)graphPath params:(NSMutableDictionary *)params httpMethod:(NSString *)httpMethod {
+  CFUUIDRef uuidRef = CFUUIDCreate(NULL);
+  NSString *uuid = (NSString *)CFUUIDCreateString(NULL, uuidRef);
+  CFRelease(uuidRef);
   params = sanitizeParams(params);
-  if (!httpMethod)
+  if (!httpMethod) {
     httpMethod = @"GET";
-  JLRequestWrapper *wrapper = [JLRequestWrapper new];
-  [pendingRequests setObject:wrapper forKey:wrapper.uuid];
-  wrapper.lib = self;
-  wrapper.request = [facebook requestWithGraphPath:graphPath andParams:params andHttpMethod:httpMethod andDelegate:wrapper];
-  return wrapper.uuid;
+  }
+  FBRequestHandler callback = ^(FBRequestConnection *connection,
+                                id result,
+                                NSError *error) {
+    if (error) {
+       ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, connection, error);
+       [self executeOnActionScriptThread:^{
+         [self callMethodNamed:@"requestDidFailWithError" withArguments:[NSArray arrayWithObjects:uuid, error, nil]];
+       }];
+    }
+    else {
+      ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, connection, result);
+      [self executeOnActionScriptThread:^{
+        [self callMethodNamed:@"requestDidLoad" withArguments:[NSArray arrayWithObjects:uuid, result, nil]];
+      }];
+    }
+  };
+
+  [FBRequestConnection startWithGraphPath:graphPath parameters:params HTTPMethod:httpMethod completionHandler:callback];
+  return uuid;
 }
 
 - (void)dialog:(NSString *)action params:(NSMutableDictionary *)params {
+  if (!facebook) {
+    facebook = [[Facebook alloc] initWithAppId:FBSession.activeSession.appID andDelegate:nil];
+    facebook.accessToken = FBSession.activeSession.accessTokenData.accessToken;
+    facebook.expirationDate = FBSession.activeSession.accessTokenData.expirationDate;
+    [facebook enableFrictionlessRequests];
+  }
   params = sanitizeParams(params);
   [facebook dialog:action andParams:params andDelegate:self];
 }
@@ -262,81 +258,16 @@ NSMutableDictionary *sanitizeParams(NSMutableDictionary *params) {
   }];
 }
 
-@end
 
-@implementation JLRequestWrapper
-
-@synthesize uuid;
-@synthesize request;
-@synthesize lib;
-
-- (id)init {
-  if (self = [super init]) {
-    CFUUIDRef uuidRef = CFUUIDCreate(NULL);
-    uuid = (id)CFUUIDCreateString(NULL, uuidRef);
-    CFRelease(uuidRef);
+NSMutableDictionary *sanitizeParams(NSMutableDictionary *params) {
+  if (!params)
+    return [NSMutableDictionary dictionary];
+  for (NSString *key in [params allKeys]) {
+    id val = [params objectForKey:key];
+    if (![val isKindOfClass:[NSString class]])
+      [params setObject:[val description] forKey:key];
   }
-  return self;
-}
-
-- (void)dealloc {
-  [uuid release];
-  [super dealloc];
-}
-
-/**
- * Called just before the request is sent to the server.
- */
-- (void)requestLoading:(FBRequest *)request_ {
-  ANELog(@"%s: %@", __PRETTY_FUNCTION__, request_);
-}
-
-/**
- * Called when the Facebook API request has returned a response.
- *
- * This callback gives you access to the raw response. It's called before
- * (void)request:(FBRequest *)request didLoad:(id)result,
- * which is passed the parsed response object.
- */
-- (void)request:(FBRequest *)request_ didReceiveResponse:(NSURLResponse *)response {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, response);
-}
-
-/**
- * Called when an error prevents the request from completing successfully.
- */
-- (void)request:(FBRequest *)request_ didFailWithError:(NSError *)error {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, error);
-  [lib executeOnActionScriptThread:^{
-    [lib callMethodNamed:@"requestDidFailWithError" withArguments:[NSArray arrayWithObjects:uuid, error, nil]];
-  }];
-}
-
-/**
- * Called when a request returns and its response has been parsed into
- * an object.
- *
- * The resulting object may be a dictionary, an array or a string, depending
- * on the format of the API response. If you need access to the raw response,
- * use:
- *
- * (void)request:(FBRequest *)request
- *      didReceiveResponse:(NSURLResponse *)response
- */
-- (void)request:(FBRequest *)request_ didLoad:(id)result {
-  ANELog(@"%s: %@ %@", __PRETTY_FUNCTION__, request_, result);
-  [lib executeOnActionScriptThread:^{
-    [lib callMethodNamed:@"requestDidLoad" withArguments:[NSArray arrayWithObjects:uuid, result, nil]];
-  }];
-}
-
-/**
- * Called when a request returns a response.
- *
- * The result object is the raw response from the server of type NSData
- */
-- (void)request:(FBRequest *)request_ didLoadRawResponse:(NSData *)data {
-  ANELog(@"%s: %@ NSData (%d bytes)", __PRETTY_FUNCTION__, request_, [data length]);
+  return params;
 }
 
 @end

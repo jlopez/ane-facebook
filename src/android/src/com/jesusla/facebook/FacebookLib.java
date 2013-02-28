@@ -34,17 +34,9 @@ public class FacebookLib extends Context {
     registerFunction("applicationId", "getApplicationId");
     registerFunction("accessToken", "getAccessToken");
     registerFunction("expirationDate", "getExpirationDate");
-    registerFunction("isFrictionlessRequestsEnabled");
     registerFunction("login");
     registerFunction("logout");
-    registerFunction("extendAccessToken");
-    registerFunction("extendAccessTokenIfNeeded");
-    registerFunction("shouldExtendAccessToken");
     registerFunction("isSessionValid");
-    registerFunction("enableFrictionlessRequests");
-    registerFunction("reloadFrictionlessRecipientCache");
-    registerFunction("isFrictionlessEnabledForRecipient");
-    registerFunction("isFrictionlessEnabledForRecipients");
     registerFunction("showDialog");
     registerFunction("graph");
   }
@@ -219,42 +211,11 @@ public class FacebookLib extends Context {
     dispatchStatusEventAsync("LOGOUT", "SESSION");
   }
 
-  public boolean isFrictionlessRequestsEnabled() {
-    return false;
-  }
-
-  public void extendAccessToken() {
-    Extension.debug("extendAccessToken is deprecated");
-  }
-
-  public void extendAccessTokenIfNeeded() {
-    Extension.debug("extendAccessTokenIfNeeded is deprecated");
-  }
-
-  public boolean shouldExtendAccessToken() {
-    Extension.debug("shouldExtendAccessToken is deprecated");
-    return false;
-  }
-
   static public boolean isSessionValid() {
     Session session = Session.getActiveSession();
     if (session != null) {
       return session.isOpened();
     }
-    return false;
-  }
-
-  public void enableFrictionlessRequests() {
-  }
-
-  public void reloadFrictionlessRecipientCache() {
-  }
-
-  public boolean isFrictionlessEnabledForRecipient(String fbid) {
-    return false;
-  }
-
-  public boolean isFrictionlessEnabledForRecipients(String[] fbids) {
     return false;
   }
 
